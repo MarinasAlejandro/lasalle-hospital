@@ -31,6 +31,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - Casos borde intencionados: nulos (~5%), duplicados (~3%), fechas malformadas, huerfanos
   - Generacion determinista con seed para tests reproducibles
   - 7 tests unitarios anadidos (total 16 tests pasando)
+- **T4 (Storage layer):**
+  - `src/pipeline/storage/minio_client.py` — wrapper sobre minio-py (ensure_bucket, upload_file/bytes, download_file, exists, list_objects, remove_object)
+  - `src/pipeline/storage/mongo_writer.py` — wrapper sobre pymongo (bulk_upsert_patients idempotente, add_radiography_to_patient, start/finish_pipeline_run, write_rejected)
+  - Factories `get_minio_client_from_env` y `get_mongo_writer_from_env` que leen variables del entorno
+  - 15 tests de integracion contra MongoDB y MinIO reales (total 31 tests pasando dentro del contenedor)
 
 ### Changed
 - PostgreSQL reemplazado por MongoDB (NoSQL) tras detectar texto oculto en el enunciado

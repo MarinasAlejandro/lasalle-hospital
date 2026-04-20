@@ -144,6 +144,24 @@
 - **Casos donde hubo que corregir:**
   - Ninguno destacable en esta sesion
 
+### Sesion 10 — 2026-04-20: Implementacion T4 (Storage layer)
+- **Objetivo:** Implementar los wrappers de MinIO y MongoDB para que el pipeline pueda leer/escribir objetos y documentos
+- **Prompts representativos:**
+  - "Sigamos entonces"
+- **Resultado:**
+  - `src/pipeline/storage/minio_client.py` con operaciones clave sobre buckets y objetos
+  - `src/pipeline/storage/mongo_writer.py` con upserts idempotentes, gestion de pipeline_runs y rejected_records
+  - Factories `get_*_from_env` para centralizar la configuracion desde variables de entorno
+  - 15 tests de integracion contra MongoDB y MinIO reales (total 31 tests pasando)
+  - CB-4 cubierto via upsert por `external_id` (ejecutar dos veces el mismo input no crea duplicados)
+- **Aciertos de la IA:**
+  - Fixtures de pytest bien aisladas: DB `hospital_test_t4` y buckets con UUID para que los tests no contaminen datos de produccion
+  - Uso correcto de `bulk_write` con `UpdateOne` para upserts eficientes
+  - Separacion clara entre capa de acceso a datos (storage) y capa de orquestacion (proxima T9)
+- **Casos donde hubo que corregir:**
+  - Ninguno destacable en esta sesion — TDD funciono limpio
+- **Leccion aprendida:** Los tests de integracion contra servicios Docker reales dan mayor confianza que los mocks, especialmente cuando se verifican comportamientos como idempotencia o bulk operations
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora
