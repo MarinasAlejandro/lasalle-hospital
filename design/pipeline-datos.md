@@ -3,7 +3,7 @@
 > Spec: specs/pipeline-datos.md
 
 ## Decision arquitectonica
-Pipeline batch con PySpark en modo standalone, orquestado por un servicio watcher (deteccion automatica de ficheros nuevos) y un endpoint API (trigger manual). Almacenamiento dual: PostgreSQL para datos estructurados y MinIO para imagenes. Todo containerizado con Docker Compose.
+Pipeline batch con PySpark en modo standalone, orquestado por un servicio watcher (deteccion automatica de ficheros nuevos) y un endpoint API (trigger manual). Almacenamiento dual: MongoDB para datos clinicos y MinIO para imagenes. Todo containerizado con Docker Compose.
 
 Se elige modo standalone de Spark (no cluster) porque el volumen es simulado y simplifica la infra Docker, pero el codigo PySpark es identico al que correria en un cluster real — se puede escalar sin cambiar logica.
 
@@ -15,7 +15,7 @@ Se elige modo standalone de Spark (no cluster) porque el volumen es simulado y s
 | RF-2 | ImageIngester, MinIOClient | `src/pipeline/ingesters/image_ingester.py`, `src/pipeline/storage/minio_client.py` |
 | RF-3 | DataCleaner (PySpark) | `src/pipeline/processors/data_cleaner.py` |
 | RF-4 | DataTransformer (PySpark) | `src/pipeline/processors/data_transformer.py` |
-| RF-5 | PostgresWriter | `src/pipeline/storage/postgres_writer.py` |
+| RF-5 | MongoWriter | `src/pipeline/storage/mongo_writer.py` |
 | RF-6 | API endpoints | `src/api/routers/data.py` |
 | RF-7 | FileWatcher, PipelineOrchestrator | `src/pipeline/watcher.py`, `src/pipeline/orchestrator.py` |
 | RNF-1 | Docker Compose config | `docker-compose.yml`, `Dockerfile.*` |
@@ -59,10 +59,10 @@ Se elige modo standalone de Spark (no cluster) porque el volumen es simulado y s
 - **Requisitos que cubre:** RF-4
 - **Archivos:** `src/pipeline/processors/data_transformer.py`
 
-### PostgresWriter
-- **Responsabilidad:** Escribe DataFrames procesados a las tablas de PostgreSQL. Maneja upserts para evitar duplicados en re-ejecuciones.
+### MongoWriter
+- **Responsabilidad:** Escribe datos procesados a colecciones de MongoDB. Maneja upserts por external_id para evitar duplicados en re-ejecuciones.
 - **Requisitos que cubre:** RF-5, CB-4
-- **Archivos:** `src/pipeline/storage/postgres_writer.py`
+- **Archivos:** `src/pipeline/storage/mongo_writer.py`
 
 ### MinIOClient
 - **Responsabilidad:** Wrapper sobre boto3/minio-py para subir/descargar objetos de MinIO. Organiza por buckets y prefijos.
@@ -76,63 +76,69 @@ Se elige modo standalone de Spark (no cluster) porque el volumen es simulado y s
 
 ## Modelo de datos
 
-### PostgreSQL — Tablas
+### MongoDB — Colecciones
+
+Base de datos: `hospital`
 
 ```
-patients
-├── id: UUID (PK)
-├── external_id: VARCHAR (ID hospital, unico)
-├── name: VARCHAR
-├── birth_date: DATE
-├── age: INTEGER (calculado)
-├── gender: VARCHAR (M/F/Other)
-├── blood_type: VARCHAR
-├── created_at: TIMESTAMP
-└── updated_at: TIMESTAMP
-
-admissions
-├── id: UUID (PK)
-├── patient_id: UUID (FK → patients)
-├── admission_date: TIMESTAMP
-├── discharge_date: TIMESTAMP (nullable)
-├── department: VARCHAR
-├── diagnosis_code: VARCHAR (ICD-10)
-├── diagnosis_description: VARCHAR
-├── status: VARCHAR (admitted/discharged/transferred)
-├── created_at: TIMESTAMP
-└── updated_at: TIMESTAMP
-
-radiography_metadata
-├── id: UUID (PK)
-├── patient_id: UUID (FK → patients)
-├── minio_object_key: VARCHAR (ruta en MinIO)
-├── classification: VARCHAR (normal/pneumonia/covid — null hasta clasificar)
-├── capture_date: DATE
-├── file_size_bytes: INTEGER
-├── original_filename: VARCHAR
-├── created_at: TIMESTAMP
-└── updated_at: TIMESTAMP
+patients (indice unico: external_id)
+{
+  _id: ObjectId,
+  external_id: String,       // ID hospital
+  name: String,
+  birth_date: ISODate,
+  age: Number,               // calculado
+  gender: String,            // M/F/Other
+  blood_type: String,
+  admissions: [              // subdocumentos embebidos
+    {
+      admission_date: ISODate,
+      discharge_date: ISODate | null,
+      department: String,
+      diagnosis_code: String,    // ICD-10
+      diagnosis_description: String,
+      status: String             // admitted/discharged/transferred
+    }
+  ],
+  radiographies: [           // referencias a MinIO
+    {
+      minio_object_key: String,
+      classification: String | null,  // normal/pneumonia/covid
+      capture_date: ISODate,
+      file_size_bytes: Number,
+      original_filename: String
+    }
+  ],
+  created_at: ISODate,
+  updated_at: ISODate
+}
 
 pipeline_runs
-├── id: UUID (PK)
-├── trigger_type: VARCHAR (manual/watcher)
-├── started_at: TIMESTAMP
-├── finished_at: TIMESTAMP (nullable)
-├── status: VARCHAR (running/success/failed)
-├── records_processed: INTEGER
-├── records_rejected: INTEGER
-├── images_processed: INTEGER
-└── error_message: TEXT (nullable)
+{
+  _id: ObjectId,
+  trigger_type: String,      // manual/watcher
+  started_at: ISODate,
+  finished_at: ISODate | null,
+  status: String,            // running/success/failed
+  records_processed: Number,
+  records_rejected: Number,
+  images_processed: Number,
+  error_message: String | null
+}
 
-rejected_records
-├── id: UUID (PK)
-├── pipeline_run_id: UUID (FK → pipeline_runs)
-├── source_file: VARCHAR
-├── row_number: INTEGER
-├── rejection_reason: VARCHAR
-├── raw_data: JSONB
-└── created_at: TIMESTAMP
+rejected_records (indice: pipeline_run_id)
+{
+  _id: ObjectId,
+  pipeline_run_id: ObjectId,
+  source_file: String,
+  row_number: Number,
+  rejection_reason: String,
+  raw_data: Object,
+  created_at: ISODate
+}
 ```
+
+> Nota: Se aprovecha el modelo de documentos de MongoDB para embeber admissions y radiographies dentro del paciente. Esto evita joins y refleja la relacion natural de los datos (un paciente TIENE ingresos y radiografias).
 
 ### MinIO — Buckets
 
@@ -150,7 +156,7 @@ raw-backups/
 
 | Fuente | Formato | Campos obligatorios | Validaciones | Que pasa si falta/falla |
 |--------|---------|-------------------|-------------|------------------------|
-| CSV pacientes | CSV UTF-8 | external_id, name, birth_date, gender | birth_date formato ISO, gender en (M/F/Other) | Registro va a rejected_records con motivo |
+| CSV pacientes | CSV UTF-8 | external_id, name, birth_date, gender | birth_date formato ISO, gender en (M/F/Other) | Documento va a coleccion rejected_records con motivo |
 | CSV ingresos | CSV UTF-8 | patient_external_id, admission_date, department, diagnosis_code | admission_date ISO, patient debe existir | Registro rechazado |
 | Imagenes | PNG | filename con patron `{patient_id}_*.png` | Formato PNG valido, tamano < 50MB | Se loguea error, imagen se omite |
 
@@ -203,7 +209,7 @@ GET  /api/v1/radiographies       → Metadatos de radiografias
    └── DataTransformer: edad, categorias, agregaciones
        │
 7. CARGA
-   ├── PostgresWriter: upsert a tablas
+   ├── MongoWriter: upsert a colecciones
    └── rejected → rejected_records
        │
 8. CIERRE
@@ -214,7 +220,7 @@ GET  /api/v1/radiographies       → Metadatos de radiografias
 
 | Servicio | Imagen base | Puerto | Responsabilidad |
 |----------|-------------|--------|----------------|
-| postgres | postgres:16 | 5432 | BBDD estructurada |
+| mongodb | mongo:7 | 27017 | BBDD NoSQL datos clinicos |
 | minio | minio/minio | 9000, 9001 | Almacenamiento de imagenes |
 | spark | bitnami/spark o custom | — | Procesamiento PySpark |
 | pipeline-worker | python:3.11 + pyspark | — | Watcher + orchestrator |
@@ -225,7 +231,9 @@ GET  /api/v1/radiographies       → Metadatos de radiografias
 | Decision | Alternativa descartada | Razon |
 |----------|----------------------|-------|
 | Spark standalone (no cluster) | Spark cluster (master + workers) | Volumen simulado no justifica cluster. El codigo PySpark es el mismo — escala sin cambiar logica |
-| Upsert por external_id | INSERT con check previo | Mas robusto ante re-ejecuciones, atomico |
+| Upsert por external_id | insert con find previo | Operacion atomica nativa en MongoDB, robusto ante re-ejecuciones |
 | Watcher por polling (watchdog) | inotify / evento S3 | Mas portable entre OS, mas simple en Docker |
 | MinIO en vez de S3 real | AWS S3 | Gratis, local, compatible S3 — perfecto para proyecto academico |
-| Rejected records en BBDD | Log file con rechazados | Mas consultable, permite dashboard de calidad de datos |
+| Rejected records en MongoDB | Log file con rechazados | Mas consultable, permite dashboard de calidad de datos |
+| MongoDB (NoSQL) | PostgreSQL (relacional) | El enunciado indica preferencia por NoSQL. Documentos JSON encajan con datos clinicos semi-estructurados |
+| Admissions embebidas en patient | Colecciones separadas con referencias | Evita lookups, refleja relacion natural paciente-ingresos |

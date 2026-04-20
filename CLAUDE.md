@@ -11,7 +11,7 @@ Sistema de IA para el hospital ficticio laSalle Health Center que clasifica radi
 - **Backend/API:** Python (FastAPI)
 - **Pipeline de datos:** PySpark
 - **ML/Deep Learning:** PyTorch
-- **Base de datos:** PostgreSQL (datos estructurados) + MinIO (imagenes/objetos)
+- **Base de datos:** MongoDB (datos clinicos) + MinIO (imagenes/objetos)
 - **Dataset:** COVID-19 Radiography Database (Kaggle)
 - **Dashboard:** Streamlit o Grafana (por decidir)
 - **Infraestructura:** Docker + Docker Compose

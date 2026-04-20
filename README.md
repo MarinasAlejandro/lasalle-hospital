@@ -16,7 +16,7 @@ Proyecto final del Master en AI & Big Data.
 | API | FastAPI |
 | Pipeline de datos | PySpark |
 | Deep Learning | PyTorch |
-| BBDD estructurada | PostgreSQL |
+| BBDD NoSQL | MongoDB |
 | Almacenamiento objetos | MinIO |
 | Infraestructura | Docker + Docker Compose |
 

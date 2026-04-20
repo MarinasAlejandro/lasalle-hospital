@@ -7,10 +7,10 @@
 
 | # | Tarea | Requisitos | Dependencias | Tamano | Estado |
 |---|-------|-----------|-------------|--------|--------|
-| 1 | Infraestructura base: docker-compose con PostgreSQL + MinIO, schema SQL, buckets iniciales | RNF-1 | — | M | pending |
+| 1 | Infraestructura base: docker-compose con MongoDB + MinIO, indices y buckets iniciales | RNF-1 | — | M | pending |
 | 2 | Configuracion PySpark + logging centralizado: Dockerfile con PySpark, SparkSession factory, logging config | RNF-2, RNF-4 | T1 | S | pending |
 | 3 | Generador de datos simulados: script con Faker para CSVs de pacientes/ingresos con casos borde intencionados | Soporte | — | M | pending |
-| 4 | Storage layer: MinIO client (subir/descargar objetos) + PostgresWriter (upserts a tablas) | RF-2, RF-5, CB-4 | T1 | M | pending |
+| 4 | Storage layer: MinIO client (subir/descargar objetos) + MongoWriter (upserts a colecciones) | RF-2, RF-5, CB-4 | T1 | M | pending |
 | 5 | Ingesta de CSVs: CSVIngester lee CSVs a DataFrames PySpark, valida columnas esperadas | RF-1, CB-1 | T2 | S | pending |
 | 6 | Ingesta de imagenes: ImageIngester lee PNGs, valida formato, sube a MinIO con metadatos | RF-2, CB-2 | T4 | S | pending |
 | 7 | Validacion y limpieza PySpark: DataValidator (separa validos/rechazados) + DataCleaner (duplicados, nulos, formatos) | RF-3, CB-1, CB-3 | T5 | M | pending |
@@ -26,11 +26,11 @@ Estados: pending | in-progress | done | blocked
 ## Detalle por tarea
 
 ### T1: Infraestructura base
-- `docker-compose.yml` con servicios postgres y minio
-- `sql/init.sql` con CREATE TABLE de las 5 tablas del design
+- `docker-compose.yml` con servicios mongodb y minio
+- Script de inicializacion de MongoDB: crear DB `hospital`, colecciones e indices (unico en external_id)
 - Script de inicializacion de buckets MinIO (radiographies, raw-backups)
 - `.env` con variables de configuracion (puertos, credenciales)
-- **Verificacion:** `docker-compose up` levanta postgres y minio accesibles
+- **Verificacion:** `docker-compose up` levanta mongodb y minio accesibles
 
 ### T2: Configuracion PySpark + logging
 - `Dockerfile.pipeline` con python:3.11 + pyspark
@@ -47,7 +47,7 @@ Estados: pending | in-progress | done | blocked
 
 ### T4: Storage layer
 - `src/pipeline/storage/minio_client.py` — upload, download, list, check_exists
-- `src/pipeline/storage/postgres_writer.py` — upsert_patients, upsert_admissions, write_radiography_metadata, write_rejected, write_pipeline_run
+- `src/pipeline/storage/mongo_writer.py` — upsert_patients (con admissions embebidas), upsert_radiography_metadata, write_rejected, write_pipeline_run
 - Tests unitarios para ambos
 - **Verificacion:** Tests pasan contra servicios Docker de T1
 
@@ -66,7 +66,7 @@ Estados: pending | in-progress | done | blocked
 - `src/pipeline/processors/data_validator.py` — reglas por tipo de entidad (patient, admission), separa validos/rechazados con motivo
 - `src/pipeline/processors/data_cleaner.py` — dedup por external_id, normaliza nulos opcionales, estandariza formatos de fecha/nombre
 - Tests unitarios con DataFrames que contienen casos borde
-- **Verificacion:** Registros invalidos van a rechazados con motivo, validos salen limpios
+- **Verificacion:** Documentos invalidos van a rechazados con motivo, validos salen limpios
 
 ### T8: Transformacion PySpark
 - `src/pipeline/processors/data_transformer.py` — calcula edad desde birth_date, mapea diagnosis_code a categorias, agrega metricas (ingresos por departamento/mes)
@@ -77,6 +77,7 @@ Estados: pending | in-progress | done | blocked
 - `src/pipeline/orchestrator.py` — ejecuta secuencia completa (ingesta → validacion → limpieza → transformacion → carga), crea/actualiza pipeline_run, maneja errores globales
 - `src/pipeline/watcher.py` — usa watchdog para monitorizar `data/incoming/`, mueve procesados a `data/incoming/processed/`
 - Maneja CB-4 (idempotencia) y CB-5 (servicios no disponibles)
+- Maneja CB-4 (idempotencia via upsert en MongoDB) y CB-5 (servicios no disponibles)
 - **Verificacion:** Pipeline completo ejecuta sin errores con datos de T3
 
 ### T10: API REST
@@ -84,10 +85,10 @@ Estados: pending | in-progress | done | blocked
 - `src/api/routers/data.py` — GET /patients, /admissions, /radiographies (paginados)
 - `src/api/routers/pipeline.py` — POST /pipeline/trigger, GET /pipeline/status, GET /pipeline/runs
 - `Dockerfile.api`
-- **Verificacion:** Endpoints responden con datos de PostgreSQL, trigger dispara pipeline
+- **Verificacion:** Endpoints responden con datos de MongoDB, trigger dispara pipeline
 
 ### T11: Docker Compose completo
-- Actualizar `docker-compose.yml` con TODOS los servicios: postgres, minio, pipeline-worker, api
+- Actualizar `docker-compose.yml` con TODOS los servicios: mongodb, minio, pipeline-worker, api
 - Volumenes compartidos para `data/incoming/`
 - Health checks, depends_on con condicion
 - **Verificacion:** `docker-compose up` levanta todo, pipeline procesa datos, API responde

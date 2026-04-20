@@ -11,7 +11,7 @@ El enunciado requiere un framework de procesamiento distribuido y un modelo de D
 - **Deep Learning:** PyTorch
 - **Dataset:** COVID-19 Radiography Database (Kaggle, Qatar University + University of Dhaka)
 - **API:** FastAPI
-- **BBDD estructurada:** PostgreSQL
+- **BBDD clinica:** MongoDB
 - **Almacenamiento objetos:** MinIO (compatible S3)
 - **Infraestructura:** Docker + Docker Compose
 
