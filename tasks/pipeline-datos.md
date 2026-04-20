@@ -8,7 +8,7 @@
 | # | Tarea | Requisitos | Dependencias | Tamano | Estado |
 |---|-------|-----------|-------------|--------|--------|
 | 1 | Infraestructura base: docker-compose con MongoDB + MinIO, indices y buckets iniciales | RNF-1 | — | M | done |
-| 2 | Configuracion PySpark + logging centralizado: Dockerfile con PySpark, SparkSession factory, logging config | RNF-2, RNF-4 | T1 | S | pending |
+| 2 | Configuracion PySpark + logging centralizado: Dockerfile con PySpark, SparkSession factory, logging config | RNF-2, RNF-4 | T1 | S | done |
 | 3 | Generador de datos simulados: script con Faker para CSVs de pacientes/ingresos con casos borde intencionados | Soporte | — | M | pending |
 | 4 | Storage layer: MinIO client (subir/descargar objetos) + MongoWriter (upserts a colecciones) | RF-2, RF-5, CB-4 | T1 | M | pending |
 | 5 | Ingesta de CSVs: CSVIngester lee CSVs a DataFrames PySpark, valida columnas esperadas | RF-1, CB-1 | T2 | S | pending |

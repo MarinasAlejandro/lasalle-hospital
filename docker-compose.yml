@@ -48,6 +48,31 @@ services:
       - ./docker/minio-init/init-buckets.sh:/init-buckets.sh:ro
     entrypoint: ["/bin/sh", "/init-buckets.sh"]
 
+  pipeline:
+    build:
+      context: .
+      dockerfile: Dockerfile.pipeline
+    image: hospital-pipeline:latest
+    container_name: hospital-pipeline
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: INFO
+      SPARK_APP_NAME: hospital-pipeline
+      SPARK_MASTER: local[*]
+      MONGO_HOST: ${MONGO_HOST}
+      MONGO_PORT: ${MONGO_PORT}
+      MONGO_DB: ${MONGO_DB}
+      MINIO_HOST: ${MINIO_HOST}
+      MINIO_PORT: ${MINIO_PORT}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET_RADIOGRAPHIES: ${MINIO_BUCKET_RADIOGRAPHIES}
+      MINIO_BUCKET_RAW_BACKUPS: ${MINIO_BUCKET_RAW_BACKUPS}
+
 volumes:
   mongo-data:
   minio-data:

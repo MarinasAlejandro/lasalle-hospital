@@ -101,6 +101,29 @@
 - **Leccion aprendida:** Al generar configuracion con IA, verificar que cada variable declarada tiene un consumidor real. La IA tiende a generar "por si acaso" mas de lo necesario. Ademas, al anadir entradas a documentos cronologicos (diario, changelog) hay que verificar que el orden se respeta — la IA puede insertar entradas nuevas en cualquier posicion si no se le indica
 - **Aciertos de la IA:** Cuando Alejandro pidio revision, la IA detecto correctamente las redundancias y propuso soluciones concretas con trade-offs claros
 
+### Sesion 8 — 2026-04-20: Implementacion T2 (PySpark + logging)
+- **Objetivo:** Configurar PySpark dentro de un contenedor Docker + logging centralizado de la aplicacion
+- **Prompts representativos:**
+  - "Seguimos con t2"
+- **Resultado:**
+  - `src/pipeline/logging_config.py` — logging centralizado (formato, niveles, idempotencia)
+  - `src/pipeline/spark_session.py` — factory de SparkSession con parametros configurables por env
+  - `src/pipeline/scripts/verify_pyspark.py` — smoke test que corre al arrancar el contenedor
+  - `Dockerfile.pipeline` — python:3.11-slim + default-jre-headless + PySpark 3.5.1
+  - `requirements-pipeline.txt` con dependencias (pyspark, pymongo, minio, pytest)
+  - `pyproject.toml` con configuracion de pytest (pythonpath, testpaths)
+  - Servicio `pipeline` anadido al docker-compose (depends_on mongodb/minio healthy)
+  - 9 tests unitarios pasan dentro del contenedor (5 logging + 4 Spark)
+- **Aciertos de la IA:**
+  - Arquitectura TDD aplicada: tests escritos antes del codigo
+  - Deteccion temprana del problema Java/JRE en la imagen base de Python
+  - Configuracion de PythonPath tanto en Docker (ENV) como en pytest (pyproject.toml)
+- **Casos donde hubo que corregir:**
+  - Primeros tests de logging fallaron porque inspeccionaban `root.handlers`/`root.level` — pytest-logging instala su propio handler en el root, interfiriendo con las aserciones. La IA rehizo los tests para asertar comportamiento observable (`caplog`, constantes)
+  - El contenedor no reflejaba cambios del codigo tras editar tests — requiere `docker compose build pipeline` antes de re-ejecutar pytest
+  - La IA VOLVIO a anadir la sesion 8 encima de la sesion 7 rompiendo el orden cronologico, a pesar de que esta leccion estaba documentada en `lessons.md`. Tuvo que rectificarse sola
+- **Leccion aprendida:** En tests de infraestructura dentro de Docker, los cambios de codigo requieren rebuild explicito de la imagen. Alternativa futura: montar `src/` como volumen en modo dev. Ademas, tener una leccion documentada no garantiza que la IA la aplique — hay que verificar activamente el orden al editar documentos cronologicos
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora
