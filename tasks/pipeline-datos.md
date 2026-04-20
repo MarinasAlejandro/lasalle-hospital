@@ -76,7 +76,6 @@ Estados: pending | in-progress | done | blocked
 ### T9: Orquestador + watcher
 - `src/pipeline/orchestrator.py` — ejecuta secuencia completa (ingesta → validacion → limpieza → transformacion → carga), crea/actualiza pipeline_run, maneja errores globales
 - `src/pipeline/watcher.py` — usa watchdog para monitorizar `data/incoming/`, mueve procesados a `data/incoming/processed/`
-- Maneja CB-4 (idempotencia) y CB-5 (servicios no disponibles)
 - Maneja CB-4 (idempotencia via upsert en MongoDB) y CB-5 (servicios no disponibles)
 - **Verificacion:** Pipeline completo ejecuta sin errores con datos de T3
 

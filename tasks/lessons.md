@@ -17,6 +17,22 @@
 
 | Fecha | Decision | Alternativas | Por que |
 |-------|----------|-------------|---------|
+| 2026-04-14 | PySpark como framework de procesamiento distribuido | Dask, Apache Beam | Estandar industria, muy valorado por evaluadores de Big Data. Codigo standalone se ejecuta igual en cluster real — demuestra escalabilidad sin necesitar infraestructura real. Ver ADR-001 |
+| 2026-04-14 | PyTorch para Deep Learning (modelo de radiografias) | TensorFlow/Keras | Dominante en investigacion, debug intuitivo, mas flexible para la parte de "Investigacion y Desarrollo" que el enunciado pide. Ver ADR-001 |
+| 2026-04-14 | MongoDB como BBDD principal | PostgreSQL, PostgreSQL+MongoDB | Texto oculto en el enunciado (`NoSQL sobre todo`) indica preferencia del profesor. Modelo de documentos encaja con datos clinicos semi-estructurados — admissions embebidas en patients evita joins. Ver ADR-002 |
+| 2026-04-14 | MinIO como almacenamiento de objetos | AWS S3, GridFS en MongoDB | Compatible con S3 (estandar industrial), gratis y local. Las imagenes binarias no rinden en MongoDB. Cumple el requisito de "2 tipos de almacenamiento" del enunciado |
+| 2026-04-14 | Dataset COVID-19 Radiography Database (Kaggle) | Otros datasets publicos de chest X-ray | Exactamente las 3 clases que pide el enunciado (Normal/Pneumonia/COVID), dataset citado en papers, de Qatar University + University of Dhaka |
+| 2026-04-14 | Feature branches como estrategia git | Rama por persona, trunk-based | Estandar industria, aislamiento de cambios, PRs revisables. Mas limpio que rama/persona cuando hay 2 colaboradores |
+| 2026-04-20 | Streamlit como dashboard (pendiente de implementar) | Grafana, Dash | Mas simple, todo en Python, ideal para demos. El enunciado no fija ninguno concreto. Ver CLAUDE.md |
+| 2026-04-20 | Spark en modo standalone (local[*]) dentro del contenedor | Cluster Spark master + workers | Volumen simulado no justifica cluster. Codigo PySpark identico al que correria en cluster real — escala sin cambiar logica |
 
 ## Cosas que funcionan
-<!-- Patrones, librerias o enfoques que han dado buen resultado -->
+
+- **Metodologia SDD:** Aprobar spec → design → tasks antes de codificar evita reworks. Cada fase descubre problemas antes que la siguiente
+- **Trazabilidad con IDs:** RF-x / RNF-x / CB-x / CA-x permite conectar cada pieza de codigo con un requisito — facilita code review y memoria tecnica
+- **ADRs:** Documentar el "por que" de cada decision tecnica al tomarla ahorra preguntas futuras y evita revisiones
+- **`pdftotext` para detectar easter eggs:** Leer PDFs solo como imagen deja escapar texto oculto. Complementar con extraccion plana detecta pistas del profesor
+- **Docker Compose con healthchecks + depends_on:** Evita race conditions en arranque. El servicio pipeline espera a mongodb y minio healthy antes de iniciar
+- **Smoke test dentro del contenedor (`verify_pyspark.py`):** Forma rapida y visible de validar que la imagen Docker arranca y PySpark funciona correctamente
+- **Logging centralizado con guard idempotente:** Evita duplicacion de handlers cuando multiples modulos llaman `setup_logging()`
+- **Squash de auto-commits:** El hook genera commits atomicos por archivo; squashear manualmente antes del push deja un historial legible
