@@ -3,12 +3,24 @@
 | Prioridad | Feature | Spec | Design | Tasks | Estado | Tamano |
 |-----------|---------|------|--------|-------|--------|--------|
 | 1 | Pipeline de datos (ingesta, limpieza, transformacion) | specs/pipeline-datos.md | design/pipeline-datos.md | tasks/pipeline-datos.md | in-progress | L |
-| 2 | Modelo clasificacion radiografias (Sana/Neumonia/COVID) | specs/clasificacion-radiografias.md | design/clasificacion-radiografias.md | tasks/clasificacion-radiografias.md | pending | L |
+| 2 | Modelo clasificacion radiografias (Sana/Neumonia/COVID) con PyTorch | specs/clasificacion-radiografias.md | design/clasificacion-radiografias.md | tasks/clasificacion-radiografias.md | pending | L |
 | 3 | API REST (servir predicciones y datos) | specs/api-rest.md | design/api-rest.md | tasks/api-rest.md | pending | M |
-| 4 | Dashboard de visualizacion | specs/dashboard.md | design/dashboard.md | tasks/dashboard.md | pending | M |
-| 5 | Automatizacion de procesos | specs/automatizacion.md | design/automatizacion.md | tasks/automatizacion.md | pending | M |
-| 6 | Infraestructura Docker Compose | specs/infraestructura.md | design/infraestructura.md | tasks/infraestructura.md | pending | M |
-| 7 | Monitorizacion y calidad de datos | specs/monitorizacion.md | design/monitorizacion.md | tasks/monitorizacion.md | pending | M |
-| 8 | Memoria tecnica | — | — | — | pending | M |
-| 9 | Consideraciones eticas y legales | — | — | — | pending | S |
-| 10 | Presentacion (10-15 min) | — | — | — | pending | S |
+| 4 | Dashboard de visualizacion (Streamlit) | specs/dashboard.md | design/dashboard.md | tasks/dashboard.md | pending | M |
+| 5 | Automatizacion de procesos (alertas + informes + watcher) | specs/automatizacion.md | design/automatizacion.md | tasks/automatizacion.md | pending | M |
+| 6 | Monitorizacion y calidad de datos (logging centralizado + validacion + alertas) | specs/monitorizacion.md | design/monitorizacion.md | tasks/monitorizacion.md | pending | M |
+| 7 | Evaluacion clinica del modelo (matriz confusion + analisis de errores) | specs/evaluacion-clinica.md | design/evaluacion-clinica.md | tasks/evaluacion-clinica.md | pending | S |
+| 8 | Memoria tecnica (descripcion, datos, arquitectura, modelos, integraciones) | — | — | — | pending | L |
+| 9 | Consideraciones eticas y legales (sesgos, privacidad, riesgos, limitaciones) | — | — | — | pending | S |
+| 10 | Justificaciones tecnicas y reflexion critica (limitaciones, mejoras) | — | — | — | pending | S |
+| 11 | Diario de desarrollo con IA (documento vivo — se actualiza cada sesion) | — | — | — | in-progress | M |
+| 12 | Presentacion final (10-15 min) | — | — | — | pending | S |
+
+Estados: pending | spec-done | design-done | tasks-done | in-progress | done
+Tamanos: S (< 1 dia) | M (1-3 dias) | L (> 3 dias)
+
+## Notas
+
+- **Feature 11 (Diario IA)** — Es un documento vivo que se actualiza cada sesion de trabajo. Entregable OBLIGATORIO segun el enunciado.
+- **Feature 6 (Monitorizacion)** — Se construye incrementalmente con el pipeline. Incluye logging, validacion de calidad (rejected_records) y alertas.
+- **Feature 7 (Evaluacion clinica)** — Separada del modelo porque el enunciado da peso especifico al "Porque" del modelo (matriz de confusion, impacto de errores desde punto de vista medico).
+- **Features 8-10, 12** — Documentacion final y presentacion, se abordan en las ultimas semanas.

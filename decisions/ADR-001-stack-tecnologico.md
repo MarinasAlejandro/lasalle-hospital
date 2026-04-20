@@ -31,7 +31,7 @@ El enunciado requiere un framework de procesamiento distribuido y un modelo de D
 ## Consecuencias
 - (+) PySpark impresiona a evaluadores de Big Data
 - (+) PyTorch da flexibilidad para la investigacion que pide el enunciado
-- (+) FastAPI + PostgreSQL + MinIO son stack conocido por el equipo
+- (+) FastAPI + MongoDB + MinIO son stack moderno y conocido por el equipo
 - (-) PySpark requiere mas RAM en Docker (JVM)
 - (-) PyTorch requiere configurar inference server manualmente
 
