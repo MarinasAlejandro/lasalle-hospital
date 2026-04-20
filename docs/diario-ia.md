@@ -85,6 +85,22 @@
 - **Aciertos de la IA:** Configuracion correcta al primer intento, healthchecks incluidos, variables externalizadas
 - **Iteraciones:** Docker daemon no estaba arrancado al inicio, la IA detecto el error y pidio a Alejandro que lo iniciara
 
+### Sesion 7 — 2026-04-20: Limpieza del docker-compose y .env
+- **Objetivo:** Revisar la infraestructura T1 y eliminar redundancias/inconsistencias detectadas por Alejandro
+- **Prompts representativos:**
+  - "revisa que el docker-compose está bien, ya que noto que hay cosas que sobran"
+  - "Yo habia visto la redundancia y lo que sobra, asi que arregla eso"
+- **Resultado:**
+  - Eliminada variable `MONGO_INITDB_DATABASE` del compose (redundante con `init-db.js`)
+  - Eliminadas `MONGO_USER` y `MONGO_PASSWORD` de `.env` (no tenian consumidor, creaban impresion falsa de auth)
+  - 2 lecciones anadidas a `tasks/lessons.md`
+- **Casos donde hubo que corregir:**
+  - La IA genero inicialmente un `.env` con credenciales "por si acaso" que nunca llego a cablear en el compose
+  - La IA duplico la declaracion de base de datos en dos sitios sin necesidad
+  - Al anadir la sesion 7 al diario, la IA la coloco ENCIMA de la sesion 6 rompiendo el orden cronologico. Alejandro tuvo que pedir explicitamente que se ordenara por dia
+- **Leccion aprendida:** Al generar configuracion con IA, verificar que cada variable declarada tiene un consumidor real. La IA tiende a generar "por si acaso" mas de lo necesario. Ademas, al anadir entradas a documentos cronologicos (diario, changelog) hay que verificar que el orden se respeta — la IA puede insertar entradas nuevas en cualquier posicion si no se le indica
+- **Aciertos de la IA:** Cuando Alejandro pidio revision, la IA detecto correctamente las redundancias y propuso soluciones concretas con trade-offs claros
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora
