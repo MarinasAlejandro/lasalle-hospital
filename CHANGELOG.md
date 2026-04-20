@@ -25,6 +25,12 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - `pyproject.toml` con configuracion de pytest (pythonpath, testpaths)
   - Servicio `pipeline` en docker-compose con depends_on condicionales
   - 9 tests unitarios pasando dentro del contenedor (5 logging + 4 Spark)
+- **T3 (Generador de datos simulados):**
+  - `src/pipeline/scripts/generate_data.py` con Faker (es_ES)
+  - CSVs realistas: 5.000 pacientes + 10.000 ingresos, codigos ICD-10, departamentos hospitalarios
+  - Casos borde intencionados: nulos (~5%), duplicados (~3%), fechas malformadas, huerfanos
+  - Generacion determinista con seed para tests reproducibles
+  - 7 tests unitarios anadidos (total 16 tests pasando)
 
 ### Changed
 - PostgreSQL reemplazado por MongoDB (NoSQL) tras detectar texto oculto en el enunciado

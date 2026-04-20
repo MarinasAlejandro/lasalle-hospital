@@ -124,6 +124,26 @@
   - La IA VOLVIO a anadir la sesion 8 encima de la sesion 7 rompiendo el orden cronologico, a pesar de que esta leccion estaba documentada en `lessons.md`. Tuvo que rectificarse sola
 - **Leccion aprendida:** En tests de infraestructura dentro de Docker, los cambios de codigo requieren rebuild explicito de la imagen. Alternativa futura: montar `src/` como volumen en modo dev. Ademas, tener una leccion documentada no garantiza que la IA la aplique — hay que verificar activamente el orden al editar documentos cronologicos
 
+### Sesion 9 — 2026-04-20: Implementacion T3 (Generador de datos simulados)
+- **Objetivo:** Crear script que genere CSVs sinteticos de pacientes e ingresos con datos clinicos realistas y casos borde
+- **Prompts representativos:**
+  - "Listo pues vamos a por la t3"
+  - "Crees que seran suficientes casos? Para entrenar al modelo que queremos investiga"
+- **Resultado:**
+  - `src/pipeline/scripts/generate_data.py` con Faker (locale es_ES)
+  - 5.000 pacientes + 10.000 ingresos con codigos ICD-10 reales, departamentos hospitalarios, distribuciones ponderadas de genero y grupo sanguineo
+  - Casos borde intencionados (~5%): nulos en campos obligatorios, fechas DD/MM/YYYY en vez de ISO, duplicados (~3%), referencias huerfanas a pacientes inexistentes
+  - Generacion determinista via `seed` para tests reproducibles
+  - CLI con `argparse` (flags `--patients`, `--admissions`, `--output-dir`, `--edge-case-ratio`, `--seed`)
+  - 7 tests unitarios anadidos. Total 16 tests pasando en contenedor
+  - CSVs ejecutados y guardados en `data/raw/` (5.150 + 10.000 filas)
+- **Aciertos de la IA:**
+  - TDD correctamente aplicado: tests primero, codigo despues
+  - Proactivamente investigo el tamaño real del dataset de Kaggle con WebSearch para responder a Alejandro sobre suficiencia de datos
+  - Aclaro la confusion entre datos tabulares (CSVs con Faker) vs dataset de imagenes (Kaggle) que tienen proposito distinto
+- **Casos donde hubo que corregir:**
+  - Ninguno destacable en esta sesion
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora
