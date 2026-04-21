@@ -19,4 +19,4 @@ COPY pyproject.toml ./
 COPY src/ ./src/
 COPY tests/ ./tests/
 
-CMD ["python", "-m", "src.pipeline.scripts.verify_pyspark"]
+CMD ["python", "-m", "src.pipeline.scripts.bootstrap"]

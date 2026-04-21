@@ -54,11 +54,16 @@ services:
       dockerfile: Dockerfile.pipeline
     image: hospital-pipeline:latest
     container_name: hospital-pipeline
+    restart: "no"
     depends_on:
       mongodb:
         condition: service_healthy
       minio:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    volumes:
+      - ./data:/app/data:ro
     environment:
       LOG_LEVEL: INFO
       SPARK_APP_NAME: hospital-pipeline

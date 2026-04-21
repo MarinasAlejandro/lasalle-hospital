@@ -11,11 +11,11 @@ venv/
 dist/
 build/
 
-# Data (large files)
-data/raw/*
+# Data
+# data/raw/ (synthetic fixtures for docker compose bootstrap) IS tracked so
+# that the stack is fully reproducible and offline-capable.
 data/processed/*
 data/models/*
-!data/raw/.gitkeep
 !data/processed/.gitkeep
 !data/models/.gitkeep
 
