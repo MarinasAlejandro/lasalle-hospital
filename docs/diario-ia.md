@@ -201,6 +201,35 @@
   - Ninguno destacable en esta sesion
 - **Leccion aprendida:** Revisar el enunciado antes de tomar decisiones tecnicas ambiguas. Alejandro pregunto "¿el enunciado pide algo sobre esto?" y la revision confirmo que teniamos libertad total — pero tambien confirmo el requisito de "un solo comando" que influyo en la decision final
 
+### Sesion 13 — 2026-04-21: Arranque con un solo comando + portabilidad
+- **Objetivo:** Cumplir el requisito del enunciado de que "cualquier persona pueda levantar el proyecto completo con un unico comando siguiendo el README", incluyendo entornos sin `.env`
+- **Prompts representativos:**
+  - "quiero un unico comando con el que se pueda iniciar todo y probarlo"
+  - "Creo que nos estamos liando, ya que tenemos que para decidir esto tenemos que tener en mente nuestro objetivo final"
+  - "No existe .env.example — el docker-compose up no arranca en otra máquina?"
+  - "Los tests de integración petan con KeyError en vez de hacer skip"
+- **Resultado:**
+  - `src/pipeline/scripts/bootstrap.py`: verifica fixtures en `data/raw/`, sube radiografias a MinIO y comprueba conectividad con MongoDB al arrancar. Idempotente
+  - Dockerfile.pipeline CMD cambiado a bootstrap
+  - docker-compose: servicio pipeline con `restart: "no"`, volumen `./data:/app/data:ro` y defaults `${VAR:-default}` en todas las variables
+  - `data/raw/patients.csv`, `admissions.csv` y 17 PNGs dummy committeados al repo (~1MB) → reproducibilidad 100%
+  - `.env.example` committeado como referencia opcional
+  - `tests/pipeline/conftest.py` con hook `pytest_collection_modifyitems` que hace skip de los tests de integracion si MongoDB/MinIO no estan disponibles por TCP
+  - README simplificado a instrucciones paso a paso
+  - Verificado end-to-end: arranque sin `.env` funciona, tests con servicios arriba (47 passed), tests con servicios caidos (25 passed + 22 skipped sin errores)
+- **Aciertos de la IA:**
+  - Detecto que los fixtures committeados al repo eran la opcion correcta para cumplir "un solo comando" + reproducibilidad
+  - Uso de defaults en docker-compose sirvio para eliminar la dependencia del `.env`
+- **Casos donde hubo que corregir:**
+  - **Propuse crear un `run.sh` bash** para "iniciar y probar" sin leer bien el enunciado. Alejandro me hizo releer el PDF y descubri que la palabra exacta era "levantar", no "probar + levantar". El bash script sobraba: bastaba con `docker compose up`
+  - **No rebuildee la imagen del pipeline** tras anadir `conftest.py`, y los tests seguian dando error. Tuve que hacer `docker compose build pipeline` antes de ver el efecto. Es una leccion que ya estaba en `tasks/lessons.md` y la volvi a repetir
+  - **Actue sin confirmar** cuando Alejandro dijo "Vas muy rapido, has actuado sin yo confirmarte que lo quiero asi"
+  - **Me olvide de actualizar CHANGELOG y diario** tras los cambios de bootstrap + skip. Alejandro lo detecto preguntando "actualizaste todo despues de estos commits?"
+- **Leccion aprendida:**
+  - Al leer requisitos ambiguos, volver al texto original del enunciado en vez de inferir. "Un comando para levantar" ≠ "un comando para probar"
+  - Pedir confirmacion antes de actuar cuando la solucion no sea trivial o evidente
+  - Tras cada bloque de cambios tecnicos, revisar SIEMPRE si CHANGELOG y diario necesitan entrada
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora

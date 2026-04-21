@@ -52,6 +52,16 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - `docs/runbooks/download-radiography-dataset.md` con instrucciones para descargar el dataset real de Kaggle cuando se entrene el modelo
   - 7 tests de integracion contra MinIO real (total 47 tests pasando)
   - Smoke test con 17 PNGs dummy subidos a MinIO verificado
+- **Arranque con un unico comando (`docker compose up`):**
+  - `src/pipeline/scripts/bootstrap.py` corre al arrancar el servicio pipeline: verifica fixtures en `data/raw/`, sube radiografias a MinIO y comprueba conectividad con MongoDB (idempotente)
+  - Dockerfile.pipeline con CMD `bootstrap` en lugar de `verify_pyspark`
+  - Servicio `pipeline` en docker-compose con `restart: "no"`, `depends_on` condicional a `minio-init` completo y volumen `./data:/app/data:ro`
+  - `data/raw/patients.csv`, `data/raw/admissions.csv` y 17 PNGs dummy committeados al repo (~1MB) para arranque offline, determinista y reproducible
+- **Configuracion portable sin `.env`:**
+  - Todas las variables del docker-compose con defaults (`${VAR:-default}`). Arranca en cualquier maquina sin crear `.env`
+  - `.env.example` committeado como referencia opcional
+- **Tests con skip limpio:**
+  - `tests/pipeline/conftest.py` con hook que detecta disponibilidad de MongoDB/MinIO por TCP y hace skip de los tests de integracion cuando no estan accesibles (evita `KeyError` y errores de setup)
 
 ### Changed
 - PostgreSQL reemplazado por MongoDB (NoSQL) tras detectar texto oculto en el enunciado
