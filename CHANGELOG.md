@@ -70,6 +70,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - 13 tests unitarios con schemas PySpark explicitos (total 67 tests pasando)
   - Smoke test contra datos reales: 5.150 patients -> 4.886 validos + 264 rechazados (121 fecha mala, 72 nombre vacio, 71 gender invalido). 10.000 admissions -> 9.507 validos + 493 rechazados
 
+- **T8 (Transformacion PySpark):**
+  - `src/pipeline/processors/data_transformer.py` con `DataTransformer`
+  - `enrich_patients`: anade columna `age` con calculo mes-a-mes (meses_entre / 12 redondeado abajo). Acepta `reference_date` para tests deterministas
+  - `enrich_admissions`: anade `diagnosis_category` mapeando codigos ICD-10 a {COVID-19, Pneumonia, Other, Unknown} alineado con la clasificacion triple del proyecto
+  - Agregaciones: `admissions_by_department`, `admissions_by_month` (yyyy-MM), `admissions_by_diagnosis_category`
+  - 15 tests unitarios (total **85 tests pasando**)
+  - Smoke test end-to-end contra datos reales: categorias COVID-19/Pneumonia/Other al 9.7%/19.5%/70.8% (cuadra con 1/10, 2/10, 7/10 de los ICD-10 de T3). Departamentos equilibrados. Piramide de edad realista
+
 ### Fixed
 - `DataValidator`: las reglas `isin` (gender, blood_type, status) no capturaban valores `null` por la logica ternaria de PySpark. Anadido `col.isNull() |` a las tres reglas, con tests de regresion. Descubierto cuadrando los numeros del smoke test
 
