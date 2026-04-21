@@ -63,7 +63,7 @@ def test_bulk_upsert_patients_updates_existing_fields(writer: MongoWriter):
 
 def test_add_radiography_to_patient_appends_to_array(writer: MongoWriter):
     writer.bulk_upsert_patients([{"external_id": "HOSP-000001", "name": "Ana"}])
-    radiography = {"minio_object_key": "radios/HOSP-000001_1.png", "capture_date": "2026-04-20"}
+    radiography = {"minio_object_key": "radios/HOSP-000001_1.png", "ingested_at": "2026-04-20"}
 
     added = writer.add_radiography_to_patient("HOSP-000001", radiography)
     assert added is True
@@ -73,12 +73,29 @@ def test_add_radiography_to_patient_appends_to_array(writer: MongoWriter):
     assert doc["radiographies"][0]["minio_object_key"] == "radios/HOSP-000001_1.png"
 
 
+def test_add_radiography_is_idempotent_on_repeated_calls(writer: MongoWriter):
+    """CB-4: re-ingesting the same radiography must not create duplicates."""
+    writer.bulk_upsert_patients([{"external_id": "HOSP-000001", "name": "Ana"}])
+    radiography = {"minio_object_key": "radios/HOSP-000001_1.png", "ingested_at": "2026-04-20"}
+
+    writer.add_radiography_to_patient("HOSP-000001", radiography)
+    writer.add_radiography_to_patient("HOSP-000001", radiography)
+    writer.add_radiography_to_patient("HOSP-000001", radiography)
+
+    doc = writer.db.patients.find_one({"external_id": "HOSP-000001"})
+    assert len(doc["radiographies"]) == 1
+
+
 def test_add_radiography_returns_false_for_missing_patient(writer: MongoWriter):
     added = writer.add_radiography_to_patient(
         "HOSP-UNKNOWN",
-        {"minio_object_key": "x", "capture_date": "2026-04-20"},
+        {"minio_object_key": "x", "ingested_at": "2026-04-20"},
     )
     assert added is False
+
+
+def test_ping_returns_true_when_mongodb_is_reachable(writer: MongoWriter):
+    assert writer.ping() is True
 
 
 def test_start_and_finish_pipeline_run(writer: MongoWriter):

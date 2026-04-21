@@ -104,7 +104,7 @@ patients (indice unico: external_id)
     {
       minio_object_key: String,
       classification: String | null,  // normal/pneumonia/covid
-      capture_date: ISODate,
+      ingested_at: String,           // ISO timestamp UTC
       file_size_bytes: Number,
       original_filename: String
     }
@@ -144,7 +144,7 @@ rejected_records (indice: pipeline_run_id)
 
 ```
 radiographies/
-├── {patient_id}/{capture_date}_{original_filename}.png
+├── {patient_id}/{original_filename}        # key deterministico → subidas idempotentes
 
 raw-backups/
 ├── {pipeline_run_id}/{original_filename}

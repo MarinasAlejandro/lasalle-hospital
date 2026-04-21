@@ -89,10 +89,7 @@ class CSVIngester:
 
         df = df.withColumn(SOURCE_FILE_COLUMN, F.lit(path.name))
 
-        logger.info(
-            "Ingested %s from %s (%d rows)",
-            entity,
-            path.name,
-            df.count() if logger.isEnabledFor(20) else -1,
-        )
+        # Row counts are logged by downstream stages (validator, cleaner) so we
+        # avoid triggering an extra action on the DataFrame here.
+        logger.info("Ingested %s from %s", entity, path.name)
         return df

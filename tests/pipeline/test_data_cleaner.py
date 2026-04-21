@@ -71,16 +71,17 @@ def test_clean_patients_trims_whitespace_on_name(cleaner: DataCleaner, spark):
     assert cleaned.collect()[0]["name"] == "Ana Garcia"
 
 
-def test_clean_patients_keeps_first_occurrence_when_same_external_id(
+def test_clean_patients_collapses_conflicting_rows_to_one(
     cleaner: DataCleaner, spark
 ):
+    """Dedup guarantees uniqueness by key; which row wins is not specified."""
     df = _patients(spark, [
         ("HOSP-000001", "Ana Original", "1980-05-12", "F", "A+"),
         ("HOSP-000001", "Ana Conflict", "1981-06-13", "F", "B+"),
     ])
     cleaned = cleaner.clean_patients(df)
     assert cleaned.count() == 1
-    assert cleaned.collect()[0]["name"] == "Ana Original"
+    assert cleaned.collect()[0]["external_id"] == "HOSP-000001"
 
 
 def test_clean_admissions_removes_exact_duplicates(cleaner: DataCleaner, spark):

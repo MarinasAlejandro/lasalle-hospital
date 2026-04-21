@@ -4,11 +4,11 @@ Runs automatically at `docker compose up` via the pipeline service. It does
 the work needed to turn a fresh set of containers into a demo-ready system:
 
   1. Verify that synthetic fixtures are present on disk (committed to the repo)
-  2. Upload the example radiographies into the MinIO `radiographies` bucket
+  2. Sync local radiographies into the MinIO `radiographies` bucket
   3. Smoke-check connectivity with MongoDB
 
-The step is idempotent: if MinIO already has radiographies, the upload is
-skipped so re-running the stack is cheap.
+The step is idempotent: only radiographies whose filename is not already
+present in MinIO are uploaded, so re-running the stack is cheap.
 """
 from __future__ import annotations
 
@@ -49,32 +49,52 @@ def main() -> None:
         sum(1 for _ in images_dir.iterdir()),
     )
 
-    minio = get_minio_client_from_env()
-    minio.ensure_bucket(IMAGES_BUCKET)
-    existing = minio.list_objects(IMAGES_BUCKET)
-    if existing:
-        logger.info(
-            "MinIO already has %d radiographies in '%s' — skipping upload",
-            len(existing),
-            IMAGES_BUCKET,
-        )
-    else:
-        ingester = ImageIngester(minio_client=minio, bucket=IMAGES_BUCKET)
-        ingested = ingester.ingest_directory(images_dir)
-        logger.info(
-            "Uploaded %d radiographies to MinIO bucket '%s'",
-            len(ingested),
-            IMAGES_BUCKET,
-        )
+    _sync_radiographies(images_dir)
 
     mongo = get_mongo_writer_from_env()
     try:
-        mongo._client.admin.command("ping")
+        mongo.ping()
         logger.info("MongoDB connection OK (db=%s)", mongo.db.name)
     finally:
         mongo.close()
 
     logger.info("=== Bootstrap complete. System is ready. ===")
+
+
+def _sync_radiographies(images_dir: Path) -> None:
+    minio = get_minio_client_from_env()
+    minio.ensure_bucket(IMAGES_BUCKET)
+
+    local_pngs = sorted(
+        p for p in images_dir.iterdir()
+        if p.is_file() and p.suffix.lower() == ".png"
+    )
+    # Object keys are {patient_id}/{filename}; extract just the filename.
+    already_synced = {
+        key.rsplit("/", 1)[-1]
+        for key in minio.list_objects(IMAGES_BUCKET)
+    }
+    missing = [p for p in local_pngs if p.name not in already_synced]
+
+    if not missing:
+        logger.info(
+            "All %d local radiographies already in MinIO — skipping upload",
+            len(local_pngs),
+        )
+        return
+
+    ingester = ImageIngester(minio_client=minio, bucket=IMAGES_BUCKET)
+    uploaded = 0
+    for image_path in missing:
+        if ingester.ingest_file(image_path) is not None:
+            uploaded += 1
+
+    logger.info(
+        "Synced %d new radiographies to MinIO bucket '%s' (%d were already there)",
+        uploaded,
+        IMAGES_BUCKET,
+        len(local_pngs) - uploaded,
+    )
 
 
 if __name__ == "__main__":

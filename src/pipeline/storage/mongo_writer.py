@@ -21,6 +21,11 @@ class MongoWriter:
     def close(self) -> None:
         self._client.close()
 
+    def ping(self) -> bool:
+        """Verify the MongoDB server is reachable. Raises on failure."""
+        self._client.admin.command("ping")
+        return True
+
     def bulk_upsert_patients(self, records: list[dict]) -> dict[str, int]:
         """Upsert patients by external_id. Safe with empty input."""
         if not records:
@@ -56,19 +61,29 @@ class MongoWriter:
     def add_radiography_to_patient(
         self, external_id: str, radiography: dict[str, Any]
     ) -> bool:
-        """Push a radiography metadata dict into the patient's array.
+        """Add a radiography metadata dict to the patient's array, idempotently.
 
-        Returns True if the patient was found and the radiography appended,
-        False if no patient with that external_id exists.
+        Returns True if the patient exists (regardless of whether the entry was
+        new or already present), False if no patient with that external_id
+        exists. Re-adding the same `minio_object_key` for the same patient is a
+        no-op, which is required by CB-4 (running the pipeline twice must not
+        create duplicates).
         """
-        result = self.db.patients.update_one(
-            {"external_id": external_id},
+        if self.db.patients.count_documents({"external_id": external_id}, limit=1) == 0:
+            return False
+
+        object_key = radiography["minio_object_key"]
+        self.db.patients.update_one(
+            {
+                "external_id": external_id,
+                "radiographies.minio_object_key": {"$ne": object_key},
+            },
             {
                 "$push": {"radiographies": radiography},
                 "$set": {"updated_at": datetime.now(timezone.utc)},
             },
         )
-        return result.matched_count > 0
+        return True
 
     def start_pipeline_run(self, trigger_type: str = "manual") -> ObjectId:
         doc = {

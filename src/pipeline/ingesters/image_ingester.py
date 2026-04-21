@@ -24,7 +24,7 @@ class IngestedImage:
     original_filename: str
     minio_object_key: str
     file_size_bytes: int
-    capture_date: str  # ISO date
+    ingested_at: str  # ISO timestamp in UTC
 
 
 class ImageIngester:
@@ -57,8 +57,17 @@ class ImageIngester:
         )
         return ingested
 
+    def ingest_file(self, image_path: Path) -> IngestedImage | None:
+        """Ingest a single PNG. Returns None if invalid/corrupt/unsupported.
+
+        Exposed so callers that already know which files to sync (e.g. the
+        bootstrap, which skips images already present in MinIO) can avoid
+        re-scanning an entire directory.
+        """
+        self._minio.ensure_bucket(self._bucket)
+        return self._ingest_one(Path(image_path))
+
     def _ingest_one(self, image_path: Path) -> IngestedImage | None:
-        # Filter by extension and naming convention
         if image_path.suffix.lower() != ".png":
             logger.debug("Skipping non-PNG file: %s", image_path.name)
             return None
@@ -72,7 +81,7 @@ class ImageIngester:
             return None
         patient_id = match.group(1)
 
-        # Validate PNG signature — CB-2: corrupt images must not crash the run
+        # Validate PNG signature — CB-2: corrupt images must not crash the run.
         try:
             with image_path.open("rb") as f:
                 header = f.read(len(PNG_SIGNATURE))
@@ -84,10 +93,11 @@ class ImageIngester:
             logger.warning("Skipping corrupt/invalid PNG: %s", image_path.name)
             return None
 
-        # Build object key: {patient}/{ts}_{filename}
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%f")
-        object_key = f"{patient_id}/{timestamp}_{image_path.name}"
+        # Deterministic object key — re-uploading the same file is idempotent
+        # because MinIO overwrites with the same key.
+        object_key = f"{patient_id}/{image_path.name}"
         file_size = image_path.stat().st_size
+        now = datetime.now(timezone.utc)
 
         try:
             self._minio.upload_file(self._bucket, object_key, image_path)
@@ -100,5 +110,5 @@ class ImageIngester:
             original_filename=image_path.name,
             minio_object_key=object_key,
             file_size_bytes=file_size,
-            capture_date=datetime.now(timezone.utc).date().isoformat(),
+            ingested_at=now.isoformat(),
         )
