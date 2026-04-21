@@ -270,6 +270,31 @@
   - El codigo funciono a la primera. El error del smoke test fue mio (sintaxis `selectExpr` + `groupBy` mal compuesta), no del DataTransformer
 - **Leccion aprendida:** Para tests de funciones que dependen del reloj (fechas, timestamps), pasar la fecha como parametro opcional con default a `F.current_date()` / `datetime.now()` permite determinismo total en tests sin complicar el codigo de produccion
 
+### Sesion 16 — 2026-04-21: Code review y refactor de T1-T8
+- **Objetivo:** Pasar el codigo existente por una revision critica (antes de arrancar T9) y arreglar los issues detectados
+- **Prompts representativos:**
+  - "Ahora revision de codigo hecho hasta ahora y su logica"
+  - "Arregla los issues reales y de las recomendaciones si que cambiaria el renombre que comentabas"
+- **Resultado (7 fixes):**
+  - `csv_ingester.py`: log de ingesta sin `df.count()` (elimina magic number `20` y el placeholder `-1`). Los counts ya los loguean downstream validator/cleaner
+  - `mongo_writer.py`: metodo publico `ping()` en vez de que clientes accedieran a `_client.admin.command(...)` (rompia encapsulacion)
+  - `mongo_writer.py`: `add_radiography_to_patient` ahora idempotente (query con `$ne` sobre `minio_object_key`). Cubre CB-4: re-ejecutar el pipeline no crea duplicados en el array de radiografias
+  - `bootstrap.py`: usa `mongo.ping()` y skip selectivo (diff entre filenames locales y object_keys en MinIO) — antes hacia skip total si habia cualquier objeto
+  - `image_ingester.py`: object_key deterministico `{patient_id}/{filename}` (sin timestamp). Re-subir el mismo fichero sobreescribe en MinIO → idempotencia natural. Ademas `capture_date` renombrado a `ingested_at` (el nombre anterior era enganoso) y `datetime.now()` calculado una sola vez
+  - `image_ingester.py`: nuevo metodo publico `ingest_file(path)` para bootstrapping selectivo
+  - `data_cleaner.py`: `dropDuplicates(subset=...)` en vez de window function con `monotonically_increasing_id` — mas idiomatico y elimina no-determinismo entre particiones
+  - 2 tests nuevos (`ping`, idempotencia de `add_radiography`). Total 87 tests pasando
+  - Bootstrap verificado end-to-end: fresh start sube 17 radiografias, re-run detecta todas ya sincronizadas
+- **Aciertos de la IA:**
+  - Revision por niveles de severidad (🔴 reales / 🟡 mejoras / 🟢 fortalezas) facilito decidir que arreglar
+  - Detectar el uso asimetrico de `datetime.now()` (2 llamadas separadas con posibles microsegundos distintos) es el tipo de bug dificil de encontrar sin leer con detalle
+  - Reconocer que CB-4 NO estaba cubierto en `add_radiography_to_patient` — aunque el test lo validaba, la implementacion usaba `$push` sin check previo. El test tenia un blind spot
+- **Casos donde hubo que corregir:**
+  - Ninguno destacable — la IA aplico los fixes correctamente al primer intento
+- **Leccion aprendida:**
+  - Una revision explicita de codigo al terminar un bloque de features descubre problemas que los tests no cubren (especialmente idempotencia y encapsulacion)
+  - Renombrar campos ambiguos (`capture_date` → `ingested_at`) es una forma barata de reducir deuda semantica antes de que el nombre se propague a la memoria tecnica y al dashboard
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora

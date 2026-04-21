@@ -6,6 +6,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+
 - Estructura inicial del proyecto SDD (specs, design, tasks, decisions, docs)
 - Backlog con features identificadas del enunciado
 - Spec, design y tasks aprobados del pipeline de datos (12 tareas)
@@ -33,13 +34,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - 7 tests unitarios anadidos (total 16 tests pasando)
 - **T4 (Storage layer):**
   - `src/pipeline/storage/minio_client.py` — wrapper sobre minio-py (ensure_bucket, upload_file/bytes, download_file, exists, list_objects, remove_object)
-  - `src/pipeline/storage/mongo_writer.py` — wrapper sobre pymongo (bulk_upsert_patients idempotente, add_radiography_to_patient, start/finish_pipeline_run, write_rejected)
+  - `src/pipeline/storage/mongo_writer.py` — wrapper sobre pymongo (bulk_upsert_patients idempotente, add_radiography_to_patient idempotente, ping, start/finish_pipeline_run, write_rejected)
   - Factories `get_minio_client_from_env` y `get_mongo_writer_from_env` que leen variables del entorno
   - 15 tests de integracion contra MongoDB y MinIO reales (total 31 tests pasando dentro del contenedor)
 - **T5 (Ingesta de CSVs):**
   - `src/pipeline/ingesters/csv_ingester.py` — lee CSVs a DataFrames PySpark
   - Valida que existan las columnas requeridas (levanta `MissingColumnsError` en caso contrario)
-  - Acepta columnas en cualquier orden, preserva todas las filas (incluidas las con casos borde — la validacion fila a fila queda para T7)
+  - Acepta columnas en cualquier orden, preserva todas las filas (la validacion fila a fila queda para T7)
   - Anade columna `_source_file` para trazabilidad
   - 9 tests unitarios con CSVs temporales (total 40 tests pasando)
   - Smoke test con los 5.150 + 10.000 CSVs reales de T3 verificado
@@ -47,13 +48,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - `src/pipeline/ingesters/image_ingester.py` — lee PNGs, valida signature PNG, sube a MinIO con metadatos
   - Convencion de nombres `{patient_external_id}_{suffix}.png` (ej. `HOSP-000001_xray1.png`)
   - CB-2 cubierto: imagenes corruptas/invalidas se loguean y omiten sin crashear
-  - Object key unico por imagen: `{patient_id}/{timestamp}_{filename}.png`
+  - Object key deterministico: `{patient_id}/{filename}` (subidas idempotentes — MinIO sobreescribe)
+  - Metodo `ingest_file()` para ingestar una sola imagen (usado por el bootstrap)
   - `src/pipeline/scripts/generate_dummy_images.py` para generar PNGs validos minimos para tests y demos
   - `docs/runbooks/download-radiography-dataset.md` con instrucciones para descargar el dataset real de Kaggle cuando se entrene el modelo
   - 7 tests de integracion contra MinIO real (total 47 tests pasando)
-  - Smoke test con 17 PNGs dummy subidos a MinIO verificado
 - **Arranque con un unico comando (`docker compose up`):**
-  - `src/pipeline/scripts/bootstrap.py` corre al arrancar el servicio pipeline: verifica fixtures en `data/raw/`, sube radiografias a MinIO y comprueba conectividad con MongoDB (idempotente)
+  - `src/pipeline/scripts/bootstrap.py` corre al arrancar el servicio pipeline: verifica fixtures en `data/raw/`, sincroniza radiografias a MinIO (skip selectivo basado en filenames) y comprueba conectividad con MongoDB
   - Dockerfile.pipeline con CMD `bootstrap` en lugar de `verify_pyspark`
   - Servicio `pipeline` en docker-compose con `restart: "no"`, `depends_on` condicional a `minio-init` completo y volumen `./data:/app/data:ro`
   - `data/raw/patients.csv`, `data/raw/admissions.csv` y 17 PNGs dummy committeados al repo (~1MB) para arranque offline, determinista y reproducible
@@ -66,26 +67,35 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - `src/pipeline/processors/data_validator.py` con `DataValidator`: separa filas validas de rechazadas con motivo (`rejection_reason`). Reglas first-failure-wins
   - Validacion de pacientes: external_id `HOSP-NNNNNN`, name no vacio, birth_date ISO, gender M/F/Other, blood_type en set valido
   - Validacion de ingresos: patient_external_id, admission_date ISO, department no vacio, status admitted/discharged/transferred
-  - `src/pipeline/processors/data_cleaner.py` con `DataCleaner`: trim whitespace y dedup por external_id (pacientes) o por (patient_external_id, admission_date, department) (ingresos)
+  - `src/pipeline/processors/data_cleaner.py` con `DataCleaner`: trim whitespace y dedup via `dropDuplicates(subset=...)` por external_id (pacientes) o por (patient_external_id, admission_date, department) (ingresos)
   - 13 tests unitarios con schemas PySpark explicitos (total 67 tests pasando)
   - Smoke test contra datos reales: 5.150 patients -> 4.886 validos + 264 rechazados (121 fecha mala, 72 nombre vacio, 71 gender invalido). 10.000 admissions -> 9.507 validos + 493 rechazados
-
 - **T8 (Transformacion PySpark):**
   - `src/pipeline/processors/data_transformer.py` con `DataTransformer`
   - `enrich_patients`: anade columna `age` con calculo mes-a-mes (meses_entre / 12 redondeado abajo). Acepta `reference_date` para tests deterministas
   - `enrich_admissions`: anade `diagnosis_category` mapeando codigos ICD-10 a {COVID-19, Pneumonia, Other, Unknown} alineado con la clasificacion triple del proyecto
   - Agregaciones: `admissions_by_department`, `admissions_by_month` (yyyy-MM), `admissions_by_diagnosis_category`
-  - 15 tests unitarios (total **85 tests pasando**)
+  - 15 tests unitarios (total 85 tests pasando)
   - Smoke test end-to-end contra datos reales: categorias COVID-19/Pneumonia/Other al 9.7%/19.5%/70.8% (cuadra con 1/10, 2/10, 7/10 de los ICD-10 de T3). Departamentos equilibrados. Piramide de edad realista
 
-### Fixed
-- `DataValidator`: las reglas `isin` (gender, blood_type, status) no capturaban valores `null` por la logica ternaria de PySpark. Anadido `col.isNull() |` a las tres reglas, con tests de regresion. Descubierto cuadrando los numeros del smoke test
-
 ### Changed
+
 - PostgreSQL reemplazado por MongoDB (NoSQL) tras detectar texto oculto en el enunciado
 - docker-compose y .env limpiados (variables sin consumidor eliminadas, redundancias eliminadas)
+- `ImageIngester`: campo `capture_date` renombrado a `ingested_at` (el nombre anterior era enganoso: guardaba la fecha de ingesta, no la de captura real de la radiografia)
+- `ImageIngester`: object key pasa de `{patient_id}/{timestamp}_{filename}` a `{patient_id}/{filename}` (deterministico → subidas idempotentes)
+- `DataCleaner`: reemplazada la window function con `monotonically_increasing_id` por `dropDuplicates(subset=...)` — mas idiomatico y sin no-determinismo entre particiones
+- `bootstrap.py`: skip selectivo (diff entre filenames locales y object_keys en MinIO) en vez de skip total si existe cualquier objeto en el bucket
+- `CSVIngester`: el log de ingesta ya no fuerza `df.count()` (eliminaba un action innecesario sobre el DataFrame)
 
 ### Fixed
+
+- `DataValidator`: las reglas `isin` (gender, blood_type, status) no capturaban valores `null` por la logica ternaria de PySpark. Anadido `col.isNull() |` a las tres reglas, con tests de regresion. Descubierto cuadrando los numeros del smoke test
+- `MongoWriter.add_radiography_to_patient`: no era idempotente (violaba CB-4). Ahora usa `$ne` sobre `minio_object_key` para evitar anadir la misma radiografia dos veces al array del paciente. Test de regresion anadido
+- `ImageIngester`: dos llamadas separadas a `datetime.now()` podian generar timestamps con microsegundos distintos. Ahora se calcula una sola vez por imagen
+
 ### Removed
-- Variables `MONGO_USER` y `MONGO_PASSWORD` del `.env` (sin consumidor real)
+
+- Variables `MONGO_USER` y `MONGO_PASSWORD` del `.env` (sin consumidor real, generaban impresion falsa de auth en MongoDB)
 - Variable `MONGO_INITDB_DATABASE` del compose (redundante con script de init)
+- Acceso a `_client.admin.command("ping")` desde fuera de `MongoWriter`. Reemplazado por el metodo publico `ping()`
