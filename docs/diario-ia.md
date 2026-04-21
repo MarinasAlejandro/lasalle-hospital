@@ -314,6 +314,26 @@
   - El diseno original preveia admissions embebidas y esto funciono bien al primer intento. Tuve que explicar claramente la decision de "sobrescribir el array en cada batch" como trade-off: es idempotente pero requiere que cada batch contenga todos los admissions del paciente. Para nuestro flujo actual (CSV completo) funciona
 - **Leccion aprendida:** Cuando tienes componentes bien acotados con responsabilidades unicas (T5-T8), el orchestrator se vuelve casi trivial — simplemente los llama en cadena. El diseno previo pago
 
+### Sesion 18 — 2026-04-21: Implementacion T10 (API REST con FastAPI)
+- **Objetivo:** Exponer los datos procesados via HTTP y un endpoint para disparar el pipeline manualmente. Cierra la fase "servicio" del pipeline Big Data (pag 4 del enunciado)
+- **Prompts representativos:**
+  - "Seguimos con la t10"
+- **Resultado:**
+  - `src/api/` con FastAPI: `main.py` (factory `build_app`), `mongo_reader.py` (CQRS-light, separado del writer), `models.py` (Pydantic V2), dos routers (`data`, `pipeline`)
+  - Endpoints publicos: `/api/v1/health`, `/patients`, `/patients/{id}`, `/admissions`, `/radiographies`, `/pipeline/runs`, `/pipeline/status`, `POST /pipeline/trigger`
+  - Servicio `api` en docker-compose reutilizando la imagen `hospital-pipeline` con otro CMD (uvicorn)
+  - 12 tests nuevos (110 total). Todos pasan con TestClient contra MongoDB real
+  - `docker compose up` levanta el stack completo: API operativa en http://localhost:8000 con 4.745 patients, 8.569 admissions flattenadas y pipeline_runs consultables
+- **Aciertos de la IA:**
+  - `build_app(mongo_db_name=None, ...)` como factory facilita los tests con `TEST_DB_NAME` aislados sin tocar la BBDD de produccion
+  - Reutilizar la imagen del pipeline para la API evita tener dos imagenes con PySpark (pesado) — el `command:` del compose cambia entre `bootstrap` y `uvicorn`
+  - Separar `MongoReader` del `MongoWriter` (CQRS-light) evita que las lecturas contaminen la superficie de escritura y facilita futuras optimizaciones (indices, proyecciones)
+  - Uso de `$unwind` + `$replaceRoot` en MongoDB para flattenar admissions/radiografias embebidas sin cargar todo el paciente
+- **Casos donde hubo que corregir:**
+  - Primer intento del router `data.py` tenia un typo en los imports (`Radiographiespage := object` por confusion con walrus). Lo reescribi limpio
+  - FastAPI deprecado `@app.on_event("shutdown")` en favor de `lifespan` context manager. Cambiado a la API moderna
+- **Leccion aprendida:** Al implementar APIs sobre infraestructura existente, primero identificar que componentes reutilizar (aqui: imagen Docker + MongoWriter + orchestrator). Reutilizar evita divergencia y deuda. El coste: un Dockerfile "gordo" con PySpark innecesario para la API — aceptable para este proyecto
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora

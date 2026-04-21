@@ -84,6 +84,16 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - `watchdog==4.0.0` anadido a requirements-pipeline.txt
   - 11 tests nuevos (5 orchestrator + 4 watcher + 2 nuevos mongo_writer). Total 98 tests pasando
   - Smoke test end-to-end contra datos reales: 14.249 records procesados (4.745 patients + 9.504 admissions embebidas) + 757 rechazados. Distribucion natural de admissions por paciente
+- **T10 (API REST con FastAPI):**
+  - `src/api/main.py` con `build_app()` (factory testable) y lifespan moderno (asynccontextmanager)
+  - `src/api/mongo_reader.py` con `MongoReader` (CQRS-light: separado del writer) con operaciones de lectura + unwind para admissions/radiografias flattenadas
+  - `src/api/models.py` con schemas Pydantic V2 (Patient, Admission, Radiography, PipelineRun, pages paginadas)
+  - Routers: `data.py` (GET /patients, /patients/{id}, /admissions, /radiographies) y `pipeline.py` (GET /pipeline/runs, /pipeline/status, POST /pipeline/trigger con BackgroundTasks)
+  - `/api/v1/health` para healthchecks
+  - Servicio `api` en docker-compose reutilizando la misma imagen del pipeline + CMD de uvicorn. Health check HTTP
+  - `fastapi==0.111.0`, `uvicorn[standard]==0.30.0`, `httpx==0.27.0` anadidos
+  - 12 tests nuevos (7 data + 4 pipeline + 1 health) con TestClient contra MongoDB real. **Total 110 tests pasando**
+  - Smoke test end-to-end con stack real (`docker compose up`): API responde con 4.745 patients, 8.569 admissions, pipeline status recupera el run anterior con sus stats (14.249 processed, 757 rejected)
 
 ### Changed
 
