@@ -17,6 +17,7 @@
 | 2026-04-21 | Variables de entorno en docker-compose sin defaults rompen `docker compose up` en maquinas sin `.env` | El `.env` estaba en `.gitignore` pero no habia `.env.example` ni defaults en el compose | Regla: en proyectos con arranque "un solo comando", usar siempre `${VAR:-default}` en docker-compose y committear un `.env.example` como referencia |
 | 2026-04-21 | Tests de integracion petan con `KeyError` o errores de conexion cuando los servicios no estan arriba | Los tests usan `os.environ["HOST"]` directo y no detectan disponibilidad del backend | Regla: tests de integracion deben hacer skip limpio si su servicio no esta disponible. Usar `pytest_collection_modifyitems` en un conftest compartido con check TCP del host:port |
 | 2026-04-21 | La IA actuo sin confirmar tras Alejandro decir "me parece bien la propuesta" para verificar alternativas | Confundio "me interesa la propuesta" con "proceder a implementar" | Regla: cuando la decision implica cambios no triviales (nuevos archivos, reorganizacion), pedir confirmacion explicita antes de actuar, aunque el usuario haya mostrado interes |
+| 2026-04-21 | Tests PySpark fallaron con `CANNOT_INFER_EMPTY_SCHEMA` al crear DataFrames con columnas que tenian todos los valores `None` o con listas vacias | `createDataFrame(rows, column_names)` no puede inferir el tipo cuando todos los valores son `None` o no hay filas | Regla: en tests de PySpark, usar schemas explicitos con `StructType` siempre que haya `None` en fixtures o se quiera crear DataFrames vacios |
 
 ## Decisiones tomadas
 

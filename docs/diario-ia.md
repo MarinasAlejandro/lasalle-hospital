@@ -230,6 +230,23 @@
   - Pedir confirmacion antes de actuar cuando la solucion no sea trivial o evidente
   - Tras cada bloque de cambios tecnicos, revisar SIEMPRE si CHANGELOG y diario necesitan entrada
 
+### Sesion 14 — 2026-04-21: Implementacion T7 (Validacion y limpieza PySpark)
+- **Objetivo:** Separar filas validas de rechazadas con motivo claro, y limpiar duplicados/whitespace en los datos validados
+- **Prompts representativos:**
+  - "A por el t7"
+- **Resultado:**
+  - `src/pipeline/processors/data_validator.py` con `DataValidator` (first-failure-wins para determinismo en el motivo de rechazo)
+  - `src/pipeline/processors/data_cleaner.py` con `DataCleaner` (trim + dedup estable con `row_number()` sobre `monotonically_increasing_id()`)
+  - 13 tests unitarios (total 67 tests pasando)
+  - Smoke test con datos reales de T3: 5.150 pacientes → 4.957 validos + 193 rechazados + dedup a 4.813. 10.000 ingresos → 9.507 validos + 493 rechazados por fechas DD/MM/YYYY
+- **Aciertos de la IA:**
+  - Decision correcta de poner primero "external_id invalido" en la cascada de reglas: hace el comportamiento de rechazo deterministico y facil de explicar al evaluador
+  - Dedup con window function preserva el orden de aparicion (primer registro gana), lo que es mas intuitivo que un distinct aleatorio
+  - Validator y cleaner separados en lugar de fusionados: cada uno tiene responsabilidad clara y se puede testear aislado
+- **Casos donde hubo que corregir:**
+  - Primeros tests fallaron con `CANNOT_INFER_EMPTY_SCHEMA` porque PySpark no puede inferir tipos cuando una columna tiene todos los valores `None`. Solucion: schemas explicitos con `StructType` en los helpers de los tests
+- **Leccion aprendida:** En tests de PySpark, usar schemas explicitos con `StructType` en vez de confiar en la inferencia de tipos — especialmente cuando hay fixtures con valores `None` o dataframes vacios
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora
