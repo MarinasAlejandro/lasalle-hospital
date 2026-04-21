@@ -68,7 +68,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - Validacion de ingresos: patient_external_id, admission_date ISO, department no vacio, status admitted/discharged/transferred
   - `src/pipeline/processors/data_cleaner.py` con `DataCleaner`: trim whitespace y dedup por external_id (pacientes) o por (patient_external_id, admission_date, department) (ingresos)
   - 13 tests unitarios con schemas PySpark explicitos (total 67 tests pasando)
-  - Smoke test contra datos reales: 5.150 patients -> 4.957 validos + 193 rechazados (121 fecha mala, 72 nombre vacio), dedup a 4.813. 10.000 admissions -> 9.507 validos + 493 rechazados
+  - Smoke test contra datos reales: 5.150 patients -> 4.886 validos + 264 rechazados (121 fecha mala, 72 nombre vacio, 71 gender invalido). 10.000 admissions -> 9.507 validos + 493 rechazados
+
+### Fixed
+- `DataValidator`: las reglas `isin` (gender, blood_type, status) no capturaban valores `null` por la logica ternaria de PySpark. Anadido `col.isNull() |` a las tres reglas, con tests de regresion. Descubierto cuadrando los numeros del smoke test
 
 ### Changed
 - PostgreSQL reemplazado por MongoDB (NoSQL) tras detectar texto oculto en el enunciado

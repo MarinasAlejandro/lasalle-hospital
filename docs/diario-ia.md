@@ -245,7 +245,10 @@
   - Validator y cleaner separados en lugar de fusionados: cada uno tiene responsabilidad clara y se puede testear aislado
 - **Casos donde hubo que corregir:**
   - Primeros tests fallaron con `CANNOT_INFER_EMPTY_SCHEMA` porque PySpark no puede inferir tipos cuando una columna tiene todos los valores `None`. Solucion: schemas explicitos con `StructType` en los helpers de los tests
-- **Leccion aprendida:** En tests de PySpark, usar schemas explicitos con `StructType` en vez de confiar en la inferencia de tipos — especialmente cuando hay fixtures con valores `None` o dataframes vacios
+  - **Bug encontrado por Alejandro:** al cuadrar los numeros del smoke test, detecto que faltaba ~25% de los rechazos esperados (null_gender no aparecia). Causa: PySpark evalua `~col.isin([...])` sobre `null` como `null` y `F.when(null)` no se dispara. Arreglado anadiendo `col.isNull() | ~col.isin([...])` a las 3 reglas afectadas (gender, blood_type, status). Nuevos tests cubren el caso null. Tras el fix: 264 rechazos (antes 193), ahora con los 3 motivos esperados (missing name 72, invalid birth_date 121, invalid gender 71)
+- **Leccion aprendida:**
+  - En tests de PySpark, usar schemas explicitos con `StructType` en vez de confiar en la inferencia de tipos — especialmente cuando hay fixtures con valores `None` o dataframes vacios
+  - Ante una pregunta de "¿estan bien los resultados?", hacer verificacion cuantitativa cruzando con la distribucion esperada. Responder "si" sin cuadrar numeros es un antipatron
 
 ## Reflexion critica (en construccion)
 

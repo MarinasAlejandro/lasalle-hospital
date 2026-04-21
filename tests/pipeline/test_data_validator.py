@@ -112,6 +112,27 @@ def test_patient_with_unknown_gender_is_rejected(validator: DataValidator, spark
     assert result.rejected.collect()[0]["rejection_reason"] == "invalid gender"
 
 
+def test_patient_with_null_gender_is_rejected(validator: DataValidator, spark):
+    """Null values must not escape isin-based rules (PySpark gotcha)."""
+    df = _patient_rows(spark, [
+        ("HOSP-000001", "Ana", "1980-05-12", None, "A+"),
+    ])
+
+    result = validator.validate_patients(df)
+    assert result.valid.count() == 0
+    assert result.rejected.collect()[0]["rejection_reason"] == "invalid gender"
+
+
+def test_patient_with_null_blood_type_is_rejected(validator: DataValidator, spark):
+    df = _patient_rows(spark, [
+        ("HOSP-000001", "Ana", "1980-05-12", "F", None),
+    ])
+
+    result = validator.validate_patients(df)
+    assert result.valid.count() == 0
+    assert result.rejected.collect()[0]["rejection_reason"] == "invalid blood_type"
+
+
 def test_patient_with_unknown_blood_type_is_rejected(validator: DataValidator, spark):
     df = _patient_rows(spark, [
         ("HOSP-000001", "Ana", "1980-05-12", "F", "XYZ"),
@@ -172,6 +193,15 @@ def test_admission_with_bad_date_is_rejected(validator: DataValidator, spark):
 def test_admission_with_unknown_status_is_rejected(validator: DataValidator, spark):
     df = _admission_rows(spark, [
         ("HOSP-000001", "2025-03-10", None, "UCI", "J18.9", "Pneumonia", "unknown"),
+    ])
+    result = validator.validate_admissions(df)
+    assert result.valid.count() == 0
+    assert result.rejected.collect()[0]["rejection_reason"] == "invalid status"
+
+
+def test_admission_with_null_status_is_rejected(validator: DataValidator, spark):
+    df = _admission_rows(spark, [
+        ("HOSP-000001", "2025-03-10", None, "UCI", "J18.9", "Pneumonia", None),
     ])
     result = validator.validate_admissions(df)
     assert result.valid.count() == 0

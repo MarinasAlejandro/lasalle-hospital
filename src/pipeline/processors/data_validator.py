@@ -53,9 +53,15 @@ class DataValidator:
             F.col("birth_date").isNull() | ~F.col("birth_date").rlike(ISO_DATE_PATTERN),
             "invalid birth_date",
         )
-        df = _apply_rule(df, ~F.col("gender").isin(VALID_GENDERS), "invalid gender")
         df = _apply_rule(
-            df, ~F.col("blood_type").isin(VALID_BLOOD_TYPES), "invalid blood_type"
+            df,
+            F.col("gender").isNull() | ~F.col("gender").isin(VALID_GENDERS),
+            "invalid gender",
+        )
+        df = _apply_rule(
+            df,
+            F.col("blood_type").isNull() | ~F.col("blood_type").isin(VALID_BLOOD_TYPES),
+            "invalid blood_type",
         )
 
         return _split(df, original_columns)
@@ -81,7 +87,11 @@ class DataValidator:
             F.col("department").isNull() | (F.trim(F.col("department")) == ""),
             "missing department",
         )
-        df = _apply_rule(df, ~F.col("status").isin(VALID_STATUSES), "invalid status")
+        df = _apply_rule(
+            df,
+            F.col("status").isNull() | ~F.col("status").isin(VALID_STATUSES),
+            "invalid status",
+        )
 
         return _split(df, original_columns)
 
