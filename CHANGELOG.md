@@ -36,6 +36,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - `src/pipeline/storage/mongo_writer.py` — wrapper sobre pymongo (bulk_upsert_patients idempotente, add_radiography_to_patient, start/finish_pipeline_run, write_rejected)
   - Factories `get_minio_client_from_env` y `get_mongo_writer_from_env` que leen variables del entorno
   - 15 tests de integracion contra MongoDB y MinIO reales (total 31 tests pasando dentro del contenedor)
+- **T5 (Ingesta de CSVs):**
+  - `src/pipeline/ingesters/csv_ingester.py` — lee CSVs a DataFrames PySpark
+  - Valida que existan las columnas requeridas (levanta `MissingColumnsError` en caso contrario)
+  - Acepta columnas en cualquier orden, preserva todas las filas (incluidas las con casos borde — la validacion fila a fila queda para T7)
+  - Anade columna `_source_file` para trazabilidad
+  - 9 tests unitarios con CSVs temporales (total 40 tests pasando)
+  - Smoke test con los 5.150 + 10.000 CSVs reales de T3 verificado
 
 ### Changed
 - PostgreSQL reemplazado por MongoDB (NoSQL) tras detectar texto oculto en el enunciado

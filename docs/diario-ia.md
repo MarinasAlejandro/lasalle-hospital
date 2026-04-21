@@ -162,6 +162,25 @@
   - Ninguno destacable en esta sesion — TDD funciono limpio
 - **Leccion aprendida:** Los tests de integracion contra servicios Docker reales dan mayor confianza que los mocks, especialmente cuando se verifican comportamientos como idempotencia o bulk operations
 
+### Sesion 11 — 2026-04-21: Implementacion T5 (Ingesta de CSVs)
+- **Objetivo:** Implementar el CSVIngester que lee CSVs de pacientes e ingresos y los convierte a DataFrames PySpark validando columnas requeridas
+- **Prompts representativos:**
+  - "docker iniciado. Continuemos con t5"
+- **Resultado:**
+  - `src/pipeline/ingesters/csv_ingester.py` con `read_patients` y `read_admissions`
+  - Deteccion de columnas faltantes con `MissingColumnsError` (CB-1)
+  - Tolerancia a columnas en orden distinto
+  - Preservacion de filas con casos borde (validacion fila a fila queda para T7)
+  - Columna `_source_file` para trazabilidad
+  - 9 tests unitarios anadidos (total 40 tests pasando)
+  - Smoke test con los CSVs reales de T3 (5.150 patients + 10.000 admissions)
+- **Aciertos de la IA:**
+  - Separacion correcta de responsabilidades: ingester no filtra filas, solo valida estructura. La validacion fila a fila queda para T7
+  - TDD aplicado limpio, 9 tests escritos antes del codigo
+- **Casos donde hubo que corregir:**
+  - 3 tests iniciales usaban `== set(PATIENT_SCHEMA_COLUMNS)` olvidando que el ingester anade `_source_file`. Cambiados a `issubset()` para expresar correctamente "al menos estas columnas"
+- **Leccion aprendida:** En tests que verifican columnas de DataFrames, usar `issubset` en vez de `==` cuando el componente puede anadir columnas adicionales esperadas (como metadatos de trazabilidad)
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora
