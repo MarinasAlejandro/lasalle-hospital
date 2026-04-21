@@ -43,6 +43,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - Anade columna `_source_file` para trazabilidad
   - 9 tests unitarios con CSVs temporales (total 40 tests pasando)
   - Smoke test con los 5.150 + 10.000 CSVs reales de T3 verificado
+- **T6 (Ingesta de imagenes):**
+  - `src/pipeline/ingesters/image_ingester.py` — lee PNGs, valida signature PNG, sube a MinIO con metadatos
+  - Convencion de nombres `{patient_external_id}_{suffix}.png` (ej. `HOSP-000001_xray1.png`)
+  - CB-2 cubierto: imagenes corruptas/invalidas se loguean y omiten sin crashear
+  - Object key unico por imagen: `{patient_id}/{timestamp}_{filename}.png`
+  - `src/pipeline/scripts/generate_dummy_images.py` para generar PNGs validos minimos para tests y demos
+  - `docs/runbooks/download-radiography-dataset.md` con instrucciones para descargar el dataset real de Kaggle cuando se entrene el modelo
+  - 7 tests de integracion contra MinIO real (total 47 tests pasando)
+  - Smoke test con 17 PNGs dummy subidos a MinIO verificado
 
 ### Changed
 - PostgreSQL reemplazado por MongoDB (NoSQL) tras detectar texto oculto en el enunciado

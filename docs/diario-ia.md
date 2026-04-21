@@ -181,6 +181,26 @@
   - 3 tests iniciales usaban `== set(PATIENT_SCHEMA_COLUMNS)` olvidando que el ingester anade `_source_file`. Cambiados a `issubset()` para expresar correctamente "al menos estas columnas"
 - **Leccion aprendida:** En tests que verifican columnas de DataFrames, usar `issubset` en vez de `==` cuando el componente puede anadir columnas adicionales esperadas (como metadatos de trazabilidad)
 
+### Sesion 12 — 2026-04-21: Implementacion T6 (Ingesta de imagenes)
+- **Objetivo:** Implementar el ImageIngester que lee PNGs de radiografias, valida formato y los sube a MinIO con metadatos
+- **Prompts representativos:**
+  - "Ek enunciado del proyecto no comentaba como se tenia que hacer esto o alguna norma relacionada con esto?"
+  - "Vamos con la C entonces"
+- **Resultado:**
+  - `src/pipeline/ingesters/image_ingester.py` con validacion de PNG signature y convencion de nombres
+  - CB-2 cubierto: imagenes corruptas o con nombre invalido se omiten sin crashear
+  - `src/pipeline/scripts/generate_dummy_images.py` para generar PNGs validos minimos (1x1 RGBA) sin dependencias externas
+  - `docs/runbooks/download-radiography-dataset.md` con instrucciones para descargar el dataset real de Kaggle (~1GB) cuando toque entrenar el modelo
+  - 7 tests de integracion contra MinIO real (total 47 tests pasando)
+  - Smoke test con 17 PNGs dummy subidos correctamente a MinIO
+- **Aciertos de la IA:**
+  - Decision arquitectonica correcta de separar "PNGs dummy para tests" vs "dataset real para entrenar" — respeta el principio del enunciado de `docker compose up` sin dependencias externas
+  - Uso de PNG signature bytes para validacion (no requiere librerias de imagenes como Pillow)
+  - Object key con timestamp evita colisiones en re-ingestas del mismo fichero
+- **Casos donde hubo que corregir:**
+  - Ninguno destacable en esta sesion
+- **Leccion aprendida:** Revisar el enunciado antes de tomar decisiones tecnicas ambiguas. Alejandro pregunto "¿el enunciado pide algo sobre esto?" y la revision confirmo que teniamos libertad total — pero tambien confirmo el requisito de "un solo comando" que influyo en la decision final
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora
