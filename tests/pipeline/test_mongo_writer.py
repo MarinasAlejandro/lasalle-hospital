@@ -98,6 +98,44 @@ def test_ping_returns_true_when_mongodb_is_reachable(writer: MongoWriter):
     assert writer.ping() is True
 
 
+def test_bulk_upsert_patients_with_admissions_embeds_subdocs(writer: MongoWriter):
+    patients = [
+        {"external_id": "HOSP-000001", "name": "Ana", "age": 45},
+        {"external_id": "HOSP-000002", "name": "Luis", "age": 50},
+    ]
+    admissions = [
+        {"patient_external_id": "HOSP-000001", "admission_date": "2025-03-10",
+         "department": "UCI", "status": "admitted"},
+        {"patient_external_id": "HOSP-000001", "admission_date": "2025-06-01",
+         "department": "Urgencias", "status": "discharged"},
+        {"patient_external_id": "HOSP-000002", "admission_date": "2025-04-05",
+         "department": "Cardiologia", "status": "admitted"},
+    ]
+
+    writer.bulk_upsert_patients_with_admissions(patients, admissions)
+
+    ana = writer.db.patients.find_one({"external_id": "HOSP-000001"})
+    assert len(ana["admissions"]) == 2
+    luis = writer.db.patients.find_one({"external_id": "HOSP-000002"})
+    assert len(luis["admissions"]) == 1
+
+
+def test_bulk_upsert_patients_with_admissions_is_idempotent(writer: MongoWriter):
+    patients = [{"external_id": "HOSP-000001", "name": "Ana"}]
+    admissions = [
+        {"patient_external_id": "HOSP-000001", "admission_date": "2025-03-10",
+         "department": "UCI", "status": "admitted"},
+    ]
+
+    writer.bulk_upsert_patients_with_admissions(patients, admissions)
+    writer.bulk_upsert_patients_with_admissions(patients, admissions)
+    writer.bulk_upsert_patients_with_admissions(patients, admissions)
+
+    assert writer.db.patients.count_documents({}) == 1
+    ana = writer.db.patients.find_one({"external_id": "HOSP-000001"})
+    assert len(ana["admissions"]) == 1
+
+
 def test_start_and_finish_pipeline_run(writer: MongoWriter):
     run_id = writer.start_pipeline_run(trigger_type="manual")
     assert run_id is not None

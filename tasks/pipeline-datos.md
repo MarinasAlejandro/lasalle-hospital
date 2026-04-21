@@ -15,7 +15,7 @@
 | 6 | Ingesta de imagenes: ImageIngester lee PNGs, valida formato, sube a MinIO con metadatos | RF-2, CB-2 | T4 | S | done |
 | 7 | Validacion y limpieza PySpark: DataValidator (separa validos/rechazados) + DataCleaner (duplicados, nulos, formatos) | RF-3, CB-1, CB-3 | T5 | M | done |
 | 8 | Transformacion PySpark: DataTransformer (calculo edad, categorias diagnostico, agregaciones) | RF-4 | T7 | M | done |
-| 9 | Orquestador + watcher: PipelineOrchestrator (coordina flujo, registra runs) + FileWatcher (detecta ficheros nuevos) | RF-7, CB-4, CB-5 | T4, T5, T6, T7, T8 | M | pending |
+| 9 | Orquestador + watcher: PipelineOrchestrator (coordina flujo, registra runs) + FileWatcher (detecta ficheros nuevos) | RF-7, CB-4, CB-5 | T4, T5, T6, T7, T8 | M | done |
 | 10 | API REST: FastAPI endpoints para consultar datos + trigger manual del pipeline | RF-6 | T4, T9 | M | pending |
 | 11 | Docker Compose completo: todos los servicios integrados, un comando para levantar. Actualizar README con instrucciones reales | RNF-1, CA-7 | T9, T10 | S | pending |
 | 12 | Tests de integracion E2E: verificar criterios de aceptacion CA-1 a CA-8 | CA-1..CA-8 | T11 | M | pending |

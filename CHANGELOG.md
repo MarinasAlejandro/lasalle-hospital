@@ -77,6 +77,13 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - Agregaciones: `admissions_by_department`, `admissions_by_month` (yyyy-MM), `admissions_by_diagnosis_category`
   - 15 tests unitarios (total 85 tests pasando)
   - Smoke test end-to-end contra datos reales: categorias COVID-19/Pneumonia/Other al 9.7%/19.5%/70.8% (cuadra con 1/10, 2/10, 7/10 de los ICD-10 de T3). Departamentos equilibrados. Piramide de edad realista
+- **T9 (Orquestador + watcher):**
+  - `src/pipeline/orchestrator.py` con `PipelineOrchestrator`: coordina E→T→L (ingesta, validacion, limpieza, transformacion, carga a MongoDB). Registra cada ejecucion en `pipeline_runs` con stats y gestiona fallos (CB-5) marcando el run como `failed` con mensaje de error
+  - `MongoWriter.bulk_upsert_patients_with_admissions`: upsert de pacientes con admissions embebidas como subdocumentos (modelo NoSQL). Sobrescribe el array en cada batch — idempotente para reruns del mismo CSV
+  - `src/pipeline/watcher.py` con `IncomingFilesWatcher`: usa `watchdog` para monitorizar `data/incoming/`, dispara el callback cuando llegan `patients.csv` + `admissions.csv` y mueve los ficheros procesados a `data/incoming/processed/`
+  - `watchdog==4.0.0` anadido a requirements-pipeline.txt
+  - 11 tests nuevos (5 orchestrator + 4 watcher + 2 nuevos mongo_writer). Total 98 tests pasando
+  - Smoke test end-to-end contra datos reales: 14.249 records procesados (4.745 patients + 9.504 admissions embebidas) + 757 rechazados. Distribucion natural de admissions por paciente
 
 ### Changed
 

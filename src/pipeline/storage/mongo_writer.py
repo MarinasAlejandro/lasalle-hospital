@@ -58,6 +58,61 @@ class MongoWriter:
         )
         return stats
 
+    def bulk_upsert_patients_with_admissions(
+        self,
+        patients: list[dict],
+        admissions: list[dict],
+    ) -> dict[str, int]:
+        """Upsert patients and embed their admissions as a subdocument array.
+
+        Note: the `admissions` array is fully replaced on each upsert. Callers
+        must pass the complete set of admissions per patient in the same batch,
+        which matches how our ETL processes whole CSV files at a time. This
+        keeps re-runs idempotent (CB-4, CA-6).
+        """
+        if not patients:
+            return {"upserted": 0, "modified": 0}
+
+        grouped: dict[str, list[dict]] = {}
+        for admission in admissions:
+            pid = admission.get("patient_external_id")
+            if pid:
+                grouped.setdefault(pid, []).append(admission)
+
+        now = datetime.now(timezone.utc)
+        ops = []
+        for patient in patients:
+            external_id = patient["external_id"]
+            patient_admissions = grouped.get(external_id, [])
+            payload = {
+                **patient,
+                "admissions": patient_admissions,
+                "updated_at": now,
+            }
+            ops.append(
+                UpdateOne(
+                    {"external_id": external_id},
+                    {
+                        "$set": payload,
+                        "$setOnInsert": {"created_at": now},
+                    },
+                    upsert=True,
+                )
+            )
+
+        result = self.db.patients.bulk_write(ops, ordered=False)
+        stats = {
+            "upserted": len(result.upserted_ids),
+            "modified": result.modified_count,
+        }
+        logger.info(
+            "Patients+admissions bulk upsert: %d upserted, %d modified (%d admissions embedded)",
+            stats["upserted"],
+            stats["modified"],
+            len(admissions),
+        )
+        return stats
+
     def add_radiography_to_patient(
         self, external_id: str, radiography: dict[str, Any]
     ) -> bool:

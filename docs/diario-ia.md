@@ -295,6 +295,25 @@
   - Una revision explicita de codigo al terminar un bloque de features descubre problemas que los tests no cubren (especialmente idempotencia y encapsulacion)
   - Renombrar campos ambiguos (`capture_date` → `ingested_at`) es una forma barata de reducir deuda semantica antes de que el nombre se propague a la memoria tecnica y al dashboard
 
+### Sesion 17 — 2026-04-21: Implementacion T9 (Orquestador + watcher)
+- **Objetivo:** Cerrar el bucle ETL — conectar los componentes existentes (ingesta → validacion → limpieza → transformacion → carga) en un flujo automatizado y monitorizado
+- **Prompts representativos:**
+  - "arrancamos t9"
+  - "entonces lo del etl esta?" (revelo que los componentes estaban pero faltaba ensamblarlos)
+- **Resultado:**
+  - `src/pipeline/orchestrator.py` con `PipelineOrchestrator` y `PipelineRunResult` (dataclass). Gestiona el ciclo completo de un `pipeline_run` (start → run → stats → finish), y en caso de excepcion marca el run como `failed` antes de re-lanzar (CB-5)
+  - `src/pipeline/watcher.py` con `IncomingFilesWatcher` (watchdog). Espera a tener ambos CSVs antes de disparar el callback; mueve los ficheros procesados a `incoming/processed/`
+  - Nuevo metodo `MongoWriter.bulk_upsert_patients_with_admissions` que embebe los admissions como array dentro del documento del paciente (aprovecha NoSQL — evita joins)
+  - 11 tests nuevos (5 orchestrator + 4 watcher + 2 embedding). Total 98 tests pasando dentro del contenedor
+  - Smoke test end-to-end contra datos reales: 14.249 records procesados con exito (4.745 patients + 9.504 admissions embebidas), 757 rechazados con motivo, 1 pipeline_run registrado
+- **Aciertos de la IA:**
+  - Inyeccion de dependencias en el constructor del orchestrator (`ingester=None, validator=None, ...`) con defaults — permite tests con mocks aunque no los usemos aqui, y mantiene produccion simple
+  - El watcher dispara solo cuando ambos CSVs existen — evita triggers a medias
+  - Captura de excepciones en `run_from_files` marca el run como `failed` antes de re-lanzar (CB-5 cubierto)
+- **Casos donde hubo que corregir:**
+  - El diseno original preveia admissions embebidas y esto funciono bien al primer intento. Tuve que explicar claramente la decision de "sobrescribir el array en cada batch" como trade-off: es idempotente pero requiere que cada batch contenga todos los admissions del paciente. Para nuestro flujo actual (CSV completo) funciona
+- **Leccion aprendida:** Cuando tienes componentes bien acotados con responsabilidades unicas (T5-T8), el orchestrator se vuelve casi trivial — simplemente los llama en cadena. El diseno previo pago
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora
