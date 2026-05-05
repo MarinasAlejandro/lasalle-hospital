@@ -5,10 +5,12 @@ the work needed to turn a fresh set of containers into a demo-ready system:
 
   1. Verify that synthetic fixtures are present on disk (committed to the repo)
   2. Sync local radiographies into the MinIO `radiographies` bucket
-  3. Smoke-check connectivity with MongoDB
+  3. Run the full ETL pipeline (PySpark) if MongoDB has no patients yet,
+     so the API has data to serve right away
+  4. Smoke-check connectivity with MongoDB
 
-The step is idempotent: only radiographies whose filename is not already
-present in MinIO are uploaded, so re-running the stack is cheap.
+All steps are idempotent: re-running the stack only does work that is
+actually needed, so warm restarts are fast.
 """
 from __future__ import annotations
 
@@ -16,6 +18,8 @@ from pathlib import Path
 
 from src.pipeline.ingesters.image_ingester import ImageIngester
 from src.pipeline.logging_config import get_logger
+from src.pipeline.orchestrator import PipelineOrchestrator
+from src.pipeline.spark_session import get_spark_session
 from src.pipeline.storage.minio_client import get_minio_client_from_env
 from src.pipeline.storage.mongo_writer import get_mongo_writer_from_env
 
@@ -50,6 +54,7 @@ def main() -> None:
     )
 
     _sync_radiographies(images_dir)
+    _run_etl_if_empty(patients_csv, admissions_csv)
 
     mongo = get_mongo_writer_from_env()
     try:
@@ -95,6 +100,42 @@ def _sync_radiographies(images_dir: Path) -> None:
         IMAGES_BUCKET,
         len(local_pngs) - uploaded,
     )
+
+
+def _run_etl_if_empty(patients_csv: Path, admissions_csv: Path) -> None:
+    """Populate MongoDB by running the full ETL on the bundled CSVs.
+
+    Skipped when MongoDB already has patients — keeps warm restarts fast and
+    respects the idempotency contract of the rest of the pipeline.
+    """
+    writer = get_mongo_writer_from_env()
+    try:
+        existing = writer.db.patients.count_documents({}, limit=1)
+        if existing > 0:
+            logger.info("MongoDB already has patients — skipping ETL run")
+            return
+    finally:
+        writer.close()
+
+    logger.info("MongoDB is empty, running full ETL on bundled fixtures...")
+    spark = get_spark_session(app_name="hospital-bootstrap-etl", master="local[*]")
+    writer = get_mongo_writer_from_env()
+    try:
+        orchestrator = PipelineOrchestrator(spark=spark, mongo_writer=writer)
+        result = orchestrator.run_from_files(
+            patients_csv=patients_csv,
+            admissions_csv=admissions_csv,
+            trigger_type="bootstrap",
+        )
+        logger.info(
+            "ETL bootstrap complete: %d processed, %d rejected (run %s)",
+            result.records_processed,
+            result.records_rejected,
+            result.run_id,
+        )
+    finally:
+        writer.close()
+        spark.stop()
 
 
 if __name__ == "__main__":

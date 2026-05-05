@@ -84,6 +84,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - `watchdog==4.0.0` anadido a requirements-pipeline.txt
   - 11 tests nuevos (5 orchestrator + 4 watcher + 2 nuevos mongo_writer). Total 98 tests pasando
   - Smoke test end-to-end contra datos reales: 14.249 records procesados (4.745 patients + 9.504 admissions embebidas) + 757 rechazados. Distribucion natural de admissions por paciente
+- **T11 (Docker Compose completo + bootstrap end-to-end):**
+  - `bootstrap.py` ampliado: tras sincronizar radiografias a MinIO, ejecuta el pipeline ETL completo (PySpark) si MongoDB esta vacio. Idempotente (skip si ya hay patients)
+  - `docker compose up` (un solo comando) deja el sistema completo operativo en menos de 1 minuto: MongoDB + MinIO + 4.745 patients procesados + 8.569 admissions + 17 radiografias en MinIO + API REST sirviendo
+  - Re-arranque (warm restart) en ~1 segundo (skips idempotentes)
+  - README actualizado con la realidad: ejemplos curl de la API, tabla de URLs/credenciales, descripcion del flujo ETL, estructura completa, estado del proyecto al dia
 - **T10 (API REST con FastAPI):**
   - `src/api/main.py` con `build_app()` (factory testable) y lifespan moderno (asynccontextmanager)
   - `src/api/mongo_reader.py` con `MongoReader` (CQRS-light: separado del writer) con operaciones de lectura + unwind para admissions/radiografias flattenadas

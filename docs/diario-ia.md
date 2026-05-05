@@ -334,6 +334,23 @@
   - FastAPI deprecado `@app.on_event("shutdown")` en favor de `lifespan` context manager. Cambiado a la API moderna
 - **Leccion aprendida:** Al implementar APIs sobre infraestructura existente, primero identificar que componentes reutilizar (aqui: imagen Docker + MongoWriter + orchestrator). Reutilizar evita divergencia y deuda. El coste: un Dockerfile "gordo" con PySpark innecesario para la API — aceptable para este proyecto
 
+### Sesion 19 — 2026-05-05: Implementacion T11 (Docker Compose completo)
+- **Objetivo:** Cerrar T11 — verificar que `docker compose up` levanta todo el sistema operativo desde cero, con datos servibles via API. Actualizar README a la realidad
+- **Prompts representativos:**
+  - "Hoy es 5 de mayo, arranca t11"
+- **Resultado:**
+  - `bootstrap.py` ampliado para ejecutar el ETL completo (PipelineOrchestrator) si MongoDB esta vacio
+  - `docker compose up` deja el sistema operativo en menos de 1 minuto: MongoDB con 4.745 patients + 8.569 admissions, MinIO con 17 radiografias, API en localhost:8000 sirviendo todo
+  - Re-arranque idempotente en ~1s: skip MinIO + skip ETL si MongoDB ya tiene datos
+  - README reescrito reflejando la realidad: tabla de stack con estados, ejemplos curl de la API, flujo ETL visual, estructura completa
+- **Aciertos de la IA:**
+  - Detectar al verificar el arranque limpio que MongoDB quedaba VACIA (el bootstrap solo subia imagenes pero no procesaba CSVs). Senalo el gap antes de cerrar T11
+  - Decision pragmatica: ampliar el bootstrap para incluir el ETL automaticamente, en lugar de dejarlo como paso manual. Cumple mejor "docker compose up = sistema listo"
+  - Idempotencia: el bootstrap re-ejecutado es ~1s gracias a los checks de "already synced" en MinIO y "patients > 0" en MongoDB
+- **Casos donde hubo que corregir:**
+  - Primer intento de smoke test usaba `sleep 30` y el harness lo bloqueaba. Reemplazado por `until <check>; do sleep 2; done` para esperar a que el contenedor del bootstrap terminase
+- **Leccion aprendida:** Al cerrar una tarea de "infraestructura completa", verificar el flujo end-to-end **desde cero** (down -v + up) y no solo el estado actual. El gap del MongoDB vacio solo aparecio al hacer fresh start
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora
