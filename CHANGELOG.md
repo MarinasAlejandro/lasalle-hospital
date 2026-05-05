@@ -84,6 +84,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - `watchdog==4.0.0` anadido a requirements-pipeline.txt
   - 11 tests nuevos (5 orchestrator + 4 watcher + 2 nuevos mongo_writer). Total 98 tests pasando
   - Smoke test end-to-end contra datos reales: 14.249 records procesados (4.745 patients + 9.504 admissions embebidas) + 757 rechazados. Distribucion natural de admissions por paciente
+- **Auditoria interna del codigo — 4 bloqueantes arreglados:**
+  - **API `/radiographies` ahora devuelve datos reales:** el bootstrap solo subia las imagenes a MinIO pero descartaba el retorno de `ImageIngester`. Ahora persiste los metadatos en MongoDB (embebidos en `patients.radiographies` via `add_radiography_to_patient`, idempotente). 17 radiografias atadas a sus patients tras `docker compose up`
+  - **`POST /api/v1/pipeline/trigger` operativo:** el endpoint devolvia 503 porque la app real se construia sin `pipeline_launcher`. Nuevo modulo `src/api/pipeline_launcher.py` con `PipelineLauncher` (start_run sincrono + execute como BackgroundTask). `build_app` lo crea por defecto, configurable a `None` en tests
+  - **Orchestrator robusto frente a fallos al iniciar:** `start_pipeline_run()` movido dentro del `try`, con fallback que loguea pero no propaga si Mongo tampoco puede registrar el run fallido. `run_id` ahora opcional en `run_from_files` (acepta uno existente del launcher para no duplicar runs)
+  - **Test de regresion CB-5/MinIO:** nuevo test que verifica que `ImageIngester` con MinIO inalcanzable NO devuelve metadatos como si todo hubiera ido bien (no silent failure)
 - **T12 (Tests E2E sobre criterios de aceptacion):**
   - `tests/e2e/test_acceptance_criteria.py` con un test por cada CA-1..CA-8 de la spec
   - `tests/e2e/conftest.py` con fixtures para MongoDB, MinIO y API que hacen skip limpio si los servicios no estan accesibles

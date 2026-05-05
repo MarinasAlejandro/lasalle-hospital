@@ -94,7 +94,7 @@ curl -X POST http://localhost:8000/api/v1/pipeline/trigger
 docker compose run --rm --entrypoint "" pipeline pytest tests -v
 ```
 
-Suite de **110 tests** unitarios + de integracion contra MongoDB y MinIO reales.
+Suite de **125 tests** unitarios + de integracion contra MongoDB/MinIO reales + E2E sobre los 8 criterios de aceptacion de la spec.
 
 ## Detener el sistema
 
@@ -189,10 +189,12 @@ Artefactos en `specs/` y `design/`. Backlog en `tasks/backlog.md`. Decisiones te
 
 ## Estado del proyecto
 
-**Pipeline de datos:** 11/12 tareas completadas (T1-T11). T12 (tests E2E formales) pendiente. Ver `tasks/pipeline-datos.md` para el detalle.
+**Pipeline de datos:** 12/12 tareas completadas (T1-T12). Ver `tasks/pipeline-datos.md` para el detalle.
+
+**Tests:** 125 verdes (98 unit del pipeline + 12 API + 14 E2E sobre criterios de aceptacion + 1 regresion).
 
 **Roadmap completo:** ver `tasks/backlog.md`. Pendientes principales:
 - Modelo de clasificacion de radiografias (PyTorch)
 - Dashboard de visualizacion (Streamlit)
-- Automatizaciones (alertas + informes)
+- Automatizaciones (alertas + informes; el watcher esta como modulo, no como servicio del compose)
 - Memoria tecnica + presentacion final

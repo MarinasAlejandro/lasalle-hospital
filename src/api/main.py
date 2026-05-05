@@ -15,18 +15,27 @@ from fastapi import FastAPI
 
 from src.api.models import HealthResponse
 from src.api.mongo_reader import MongoReader
+from src.api.pipeline_launcher import PipelineLauncher
 from src.api.routers import data as data_router
 from src.api.routers import pipeline as pipeline_router
 
 API_VERSION = "0.1.0"
 
+# Sentinel that distinguishes "use the production default launcher" from
+# "explicitly disable the launcher" (used by tests that don't want to spin
+# up Spark in BackgroundTasks).
+_USE_DEFAULT_LAUNCHER = object()
+
 
 def build_app(
     mongo_db_name: str | None = None,
-    pipeline_launcher=None,
+    pipeline_launcher=_USE_DEFAULT_LAUNCHER,
     patients_csv_path: Path | None = None,
     admissions_csv_path: Path | None = None,
 ) -> FastAPI:
+    if pipeline_launcher is _USE_DEFAULT_LAUNCHER:
+        pipeline_launcher = PipelineLauncher()
+
     reader = MongoReader(
         host=os.environ.get("MONGO_HOST", "localhost"),
         port=int(os.environ.get("MONGO_PORT", "27017")),

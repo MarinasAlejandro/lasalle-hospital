@@ -62,9 +62,23 @@ class PipelineOrchestrator:
         patients_csv: Path,
         admissions_csv: Path,
         trigger_type: str = "manual",
+        run_id: ObjectId | None = None,
     ) -> PipelineRunResult:
-        run_id = self._writer.start_pipeline_run(trigger_type=trigger_type)
+        """Run the full ETL on the given CSVs.
+
+        If `run_id` is provided, the orchestrator reuses it (used by the API
+        launcher, which creates the run synchronously to return its id to the
+        client and then schedules the heavy work as a background task).
+        Otherwise a new run is created.
+
+        Errors at ANY stage — including the initial `start_pipeline_run` call
+        — are logged and, when possible, recorded as a `failed` run before
+        re-raising. We never swallow exceptions silently (CB-5).
+        """
         try:
+            if run_id is None:
+                run_id = self._writer.start_pipeline_run(trigger_type=trigger_type)
+
             patients_clean, patients_rejected = self._process_patients(patients_csv)
             admissions_clean, admissions_rejected = self._process_admissions(
                 admissions_csv
@@ -104,12 +118,22 @@ class PipelineOrchestrator:
             )
 
         except Exception as exc:
-            logger.exception("Pipeline run %s failed", run_id)
-            self._writer.finish_pipeline_run(
-                run_id,
-                status="failed",
-                error_message=f"{type(exc).__name__}: {exc}",
-            )
+            logger.exception("Pipeline run failed (run_id=%s)", run_id)
+            if run_id is not None:
+                # Best-effort: try to mark the run as failed. If MongoDB itself
+                # is the cause of the failure, this will also raise, which we
+                # log but swallow so the original exception propagates.
+                try:
+                    self._writer.finish_pipeline_run(
+                        run_id,
+                        status="failed",
+                        error_message=f"{type(exc).__name__}: {exc}",
+                    )
+                except Exception:
+                    logger.exception(
+                        "Could not mark run %s as failed (storage unavailable?)",
+                        run_id,
+                    )
             raise
 
     def _process_patients(

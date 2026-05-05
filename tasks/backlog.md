@@ -2,12 +2,12 @@
 
 | Prioridad | Feature | Spec | Design | Tasks | Estado | Tamano |
 |-----------|---------|------|--------|-------|--------|--------|
-| 1 | Pipeline de datos (ingesta, limpieza, transformacion) | specs/pipeline-datos.md | design/pipeline-datos.md | tasks/pipeline-datos.md | in-progress | L |
+| 1 | Pipeline de datos (ingesta, limpieza, transformacion, orquestador, API REST, tests E2E) | specs/pipeline-datos.md | design/pipeline-datos.md | tasks/pipeline-datos.md | done | L |
 | 2 | Modelo clasificacion radiografias (Sana/Neumonia/COVID) con PyTorch | specs/clasificacion-radiografias.md | design/clasificacion-radiografias.md | tasks/clasificacion-radiografias.md | pending | L |
-| 3 | API REST (servir predicciones y datos) | specs/api-rest.md | design/api-rest.md | tasks/api-rest.md | pending | M |
+| 3 | API REST (servir predicciones y datos) | specs/api-rest.md | design/api-rest.md | tasks/api-rest.md | done (cubierto en T10 del pipeline) | M |
 | 4 | Dashboard de visualizacion (Streamlit) | specs/dashboard.md | design/dashboard.md | tasks/dashboard.md | pending | M |
-| 5 | Automatizacion de procesos (alertas + informes + watcher) | specs/automatizacion.md | design/automatizacion.md | tasks/automatizacion.md | pending | M |
-| 6 | Monitorizacion y calidad de datos (logging centralizado + validacion + alertas) | specs/monitorizacion.md | design/monitorizacion.md | tasks/monitorizacion.md | pending | M |
+| 5 | Automatizacion de procesos (alertas + informes + watcher como servicio) | specs/automatizacion.md | design/automatizacion.md | tasks/automatizacion.md | partial (watcher como modulo + bootstrap on `up`) | M |
+| 6 | Monitorizacion y calidad de datos (logging centralizado + validacion + alertas) | specs/monitorizacion.md | design/monitorizacion.md | tasks/monitorizacion.md | partial (logging + validacion ✓; alertas pendientes) | M |
 | 7 | Evaluacion clinica del modelo (matriz confusion + analisis de errores) | specs/evaluacion-clinica.md | design/evaluacion-clinica.md | tasks/evaluacion-clinica.md | pending | S |
 | 8 | Memoria tecnica (descripcion, datos, arquitectura, modelos, integraciones) | — | — | — | pending | L |
 | 9 | Consideraciones eticas y legales (sesgos, privacidad, riesgos, limitaciones) | — | — | — | pending | S |

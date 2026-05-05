@@ -368,6 +368,26 @@
   - Primer intento de CA-8 hacia `_client.options.server_selection_timeout = 1` — pymongo 4.x ya no lo permite como property setter. Reemplazado por construir el `MongoClient` directamente con `serverSelectionTimeoutMS` y `connectTimeoutMS` cortos
 - **Leccion aprendida:** Para tests E2E que requieren timeouts cortos, configurar via parametros del constructor del cliente (no via mutacion post-creacion). Mas portable entre versiones de las librerias
 
+### Sesion 21 — 2026-05-05: Auditoria de codigo y 4 fixes bloqueantes
+- **Objetivo:** Hacer una revision critica del proyecto y arreglar los hallazgos bloqueantes antes de cerrar la sesion
+- **Prompts representativos:**
+  - "arregla los 4 bloqueantes"
+- **Resultado:**
+  - **Fix 1 (bug):** el bootstrap descartaba los metadatos que `ImageIngester` devolvia. Persistido en `patients.radiographies` via `add_radiography_to_patient` idempotente. 17 radiografias atadas tras `docker compose up`
+  - **Fix 2 (bug):** `POST /pipeline/trigger` devolvia 503 porque `app = build_app()` se llamaba sin `pipeline_launcher`. Creado `src/api/pipeline_launcher.py` con `PipelineLauncher` real, configurado por defecto en `build_app`
+  - **Fix 3 (robustez):** `start_pipeline_run` movido dentro del try; `run_from_files` acepta `run_id` opcional para que el launcher no duplique runs
+  - **Fix 4 (cobertura):** test de regresion `test_image_ingester_propagates_minio_failure_explicitly` para CB-5
+  - README + backlog actualizados (12/12 done, 125 tests)
+  - Verificacion end-to-end: `curl /radiographies` -> 17 items con metadatos reales; `POST /pipeline/trigger` -> 202 con run_id; **125 tests verdes**
+- **Aciertos de la IA:**
+  - Reutilizar `add_radiography_to_patient` (que ya era idempotente con el fix de la sesion 16) para persistir metadatos de radiografia. Cero codigo nuevo, solo cablear
+  - Sentinel `_USE_DEFAULT_LAUNCHER` para que `build_app` tenga default productivo sin romper tests que pasan `None` explicitamente
+- **Casos donde hubo que corregir:**
+  - Ninguno destacable
+- **Leccion aprendida:**
+  - Una **auditoria de codigo explicita** (revision sistematica al cerrar un bloque grande) descubre huecos que los tests no detectan, sobre todo entre lo que el sistema "afirma" (README, endpoints declarados) y lo que realmente hace en produccion. Vale la pena hacer al menos una pasada antes de entregas importantes
+  - El gap clasico: tests pasan + smoke test contra ejemplo "feliz" funciona, pero el sistema en produccion tiene una rama (POST /trigger) que NUNCA se prueba. La cobertura de tests no implica cobertura de uso
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora

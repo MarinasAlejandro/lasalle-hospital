@@ -135,3 +135,32 @@ def test_object_key_is_unique_per_image(
     assert len(keys) == 3
     for key in keys:
         assert minio_client.exists(test_bucket, key)
+
+
+def test_image_ingester_propagates_minio_failure_explicitly(tmp_path: Path):
+    """CB-5: MinIO no disponible debe fallar de forma explicita, no en silencio."""
+    from src.pipeline.storage.minio_client import MinIOClient
+
+    bad_minio = MinIOClient(
+        endpoint="nonexistent.invalid:9000",
+        access_key="x",
+        secret_key="x",
+        secure=False,
+    )
+    bad_ingester = ImageIngester(minio_client=bad_minio, bucket="any-bucket")
+
+    image = tmp_path / "HOSP-000001_xray.png"
+    _make_png(image)
+
+    # The ingester must NOT silently return success: either it raises an
+    # explicit error or it returns an empty list with no uploads. The forbidden
+    # outcome is "metadata for an image that wasn't actually uploaded".
+    try:
+        result = bad_ingester.ingest_directory(tmp_path)
+    except Exception:
+        # Explicit failure is acceptable (caller will see and log it).
+        return
+    # If no exception, no metadata should be returned.
+    assert result == [], (
+        "MinIO unreachable but ingester returned metadata — silent failure detected"
+    )

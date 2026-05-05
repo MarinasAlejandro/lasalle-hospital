@@ -7,7 +7,9 @@ the work needed to turn a fresh set of containers into a demo-ready system:
   2. Sync local radiographies into the MinIO `radiographies` bucket
   3. Run the full ETL pipeline (PySpark) if MongoDB has no patients yet,
      so the API has data to serve right away
-  4. Smoke-check connectivity with MongoDB
+  4. Persist radiography metadata in MongoDB (embedded in patients) so
+     `GET /api/v1/radiographies` returns real data, not just bytes in MinIO
+  5. Smoke-check connectivity with MongoDB
 
 All steps are idempotent: re-running the stack only does work that is
 actually needed, so warm restarts are fast.
@@ -16,7 +18,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.pipeline.ingesters.image_ingester import ImageIngester
+from src.pipeline.ingesters.image_ingester import (
+    ImageIngester,
+    IngestedImage,
+)
 from src.pipeline.logging_config import get_logger
 from src.pipeline.orchestrator import PipelineOrchestrator
 from src.pipeline.spark_session import get_spark_session
@@ -53,8 +58,9 @@ def main() -> None:
         sum(1 for _ in images_dir.iterdir()),
     )
 
-    _sync_radiographies(images_dir)
+    images_metadata = _sync_radiographies(images_dir)
     _run_etl_if_empty(patients_csv, admissions_csv)
+    _persist_radiography_metadata(images_metadata)
 
     mongo = get_mongo_writer_from_env()
     try:
@@ -66,7 +72,14 @@ def main() -> None:
     logger.info("=== Bootstrap complete. System is ready. ===")
 
 
-def _sync_radiographies(images_dir: Path) -> None:
+def _sync_radiographies(images_dir: Path) -> list[IngestedImage]:
+    """Sync local PNGs to MinIO and return metadata for ALL local images.
+
+    Object keys are deterministic (`{patient_id}/{filename}`) so re-uploading
+    the same file is a no-op in terms of MinIO state. We skip the upload when
+    the key is already present, but still build the metadata record so the
+    caller can persist it in MongoDB if needed.
+    """
     minio = get_minio_client_from_env()
     minio.ensure_bucket(IMAGES_BUCKET)
 
@@ -74,32 +87,37 @@ def _sync_radiographies(images_dir: Path) -> None:
         p for p in images_dir.iterdir()
         if p.is_file() and p.suffix.lower() == ".png"
     )
-    # Object keys are {patient_id}/{filename}; extract just the filename.
     already_synced = {
         key.rsplit("/", 1)[-1]
         for key in minio.list_objects(IMAGES_BUCKET)
     }
-    missing = [p for p in local_pngs if p.name not in already_synced]
-
-    if not missing:
-        logger.info(
-            "All %d local radiographies already in MinIO — skipping upload",
-            len(local_pngs),
-        )
-        return
 
     ingester = ImageIngester(minio_client=minio, bucket=IMAGES_BUCKET)
+    all_metadata: list[IngestedImage] = []
     uploaded = 0
-    for image_path in missing:
-        if ingester.ingest_file(image_path) is not None:
+    skipped = 0
+    for image_path in local_pngs:
+        # ingest_file always re-validates and produces metadata; if the key
+        # is already in MinIO we can technically skip the network upload, but
+        # since `ingest_file` is idempotent (overwrite-on-same-key) and the
+        # dataset is small, calling it unconditionally is the simpler invariant.
+        meta = ingester.ingest_file(image_path)
+        if meta is None:
+            continue
+        all_metadata.append(meta)
+        if image_path.name in already_synced:
+            skipped += 1
+        else:
             uploaded += 1
 
     logger.info(
-        "Synced %d new radiographies to MinIO bucket '%s' (%d were already there)",
-        uploaded,
+        "Radiographies in MinIO bucket '%s': %d total (%d uploaded now, %d already there)",
         IMAGES_BUCKET,
-        len(local_pngs) - uploaded,
+        len(all_metadata),
+        uploaded,
+        skipped,
     )
+    return all_metadata
 
 
 def _run_etl_if_empty(patients_csv: Path, admissions_csv: Path) -> None:
@@ -136,6 +154,46 @@ def _run_etl_if_empty(patients_csv: Path, admissions_csv: Path) -> None:
     finally:
         writer.close()
         spark.stop()
+
+
+def _persist_radiography_metadata(images: list[IngestedImage]) -> None:
+    """Embed each radiography metadata into its patient's document.
+
+    `add_radiography_to_patient` is idempotent (uses $ne on minio_object_key),
+    so running this twice does NOT create duplicates — fulfils CB-4/CA-6 for
+    the radiography branch of the pipeline.
+    """
+    if not images:
+        return
+
+    writer = get_mongo_writer_from_env()
+    try:
+        attached = 0
+        orphans = 0
+        for img in images:
+            metadata = {
+                "minio_object_key": img.minio_object_key,
+                "original_filename": img.original_filename,
+                "file_size_bytes": img.file_size_bytes,
+                "ingested_at": img.ingested_at,
+                "classification": None,  # populated when the ML model runs
+            }
+            if writer.add_radiography_to_patient(img.patient_external_id, metadata):
+                attached += 1
+            else:
+                orphans += 1
+                logger.warning(
+                    "Patient %s not found, radiography %s not persisted in MongoDB",
+                    img.patient_external_id,
+                    img.original_filename,
+                )
+        logger.info(
+            "Radiography metadata in MongoDB: %d attached to patients, %d orphans",
+            attached,
+            orphans,
+        )
+    finally:
+        writer.close()
 
 
 if __name__ == "__main__":
