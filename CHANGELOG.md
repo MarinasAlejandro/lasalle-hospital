@@ -84,6 +84,11 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/).
   - `watchdog==4.0.0` anadido a requirements-pipeline.txt
   - 11 tests nuevos (5 orchestrator + 4 watcher + 2 nuevos mongo_writer). Total 98 tests pasando
   - Smoke test end-to-end contra datos reales: 14.249 records procesados (4.745 patients + 9.504 admissions embebidas) + 757 rechazados. Distribucion natural de admissions por paciente
+- **T12 (Tests E2E sobre criterios de aceptacion):**
+  - `tests/e2e/test_acceptance_criteria.py` con un test por cada CA-1..CA-8 de la spec
+  - `tests/e2e/conftest.py` con fixtures para MongoDB, MinIO y API que hacen skip limpio si los servicios no estan accesibles
+  - 14 tests pasando (1+ por cada criterio): CA-1 patients en MongoDB, CA-2 radiografias en MinIO con object keys correctos, CA-3 rejected_records con motivos, CA-4 enriquecimiento (age + diagnosis_category), CA-5 API sirviendo todo, CA-6 idempotencia (sin duplicados + run twice), CA-7 stack operativo, CA-8 fallos explicitos no silenciosos
+  - Ahora el proyecto tiene **124 tests verdes** total (98 unit + 12 API + 14 E2E)
 - **T11 (Docker Compose completo + bootstrap end-to-end):**
   - `bootstrap.py` ampliado: tras sincronizar radiografias a MinIO, ejecuta el pipeline ETL completo (PySpark) si MongoDB esta vacio. Idempotente (skip si ya hay patients)
   - `docker compose up` (un solo comando) deja el sistema completo operativo en menos de 1 minuto: MongoDB + MinIO + 4.745 patients procesados + 8.569 admissions + 17 radiografias en MinIO + API REST sirviendo

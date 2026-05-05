@@ -351,6 +351,23 @@
   - Primer intento de smoke test usaba `sleep 30` y el harness lo bloqueaba. Reemplazado por `until <check>; do sleep 2; done` para esperar a que el contenedor del bootstrap terminase
 - **Leccion aprendida:** Al cerrar una tarea de "infraestructura completa", verificar el flujo end-to-end **desde cero** (down -v + up) y no solo el estado actual. El gap del MongoDB vacio solo aparecio al hacer fresh start
 
+### Sesion 20 — 2026-05-05: Implementacion T12 (Tests E2E)
+- **Objetivo:** Cerrar T12 con tests de aceptacion que verifiquen los 8 CA de la spec contra el sistema corriendo
+- **Prompts representativos:**
+  - "cerremos T12 con los tests E2E"
+- **Resultado:**
+  - `tests/e2e/test_acceptance_criteria.py` con 14 tests mapeados 1:1 (o N:1) a los CA de la spec
+  - `tests/e2e/conftest.py` con fixtures para MongoDB, MinIO, API (skip si no estan accesibles)
+  - 14/14 pasan en ~10s. **Total del proyecto: 124 tests verdes** (98 unit + 12 API + 14 E2E)
+  - Pipeline 12/12 cerrado: T1-T12 done
+- **Aciertos de la IA:**
+  - Mapeo claro CA -> test (un test por criterio, doble cobertura para CA-4, CA-5, CA-6, CA-8)
+  - Fixtures que detectan host/puerto y caen a "localhost" si no se puede resolver el hostname de Docker
+- **Casos donde hubo que corregir:**
+  - Primer intento de CA-6 usaba `mongo_client.HOST` (atributo inexistente). Reemplazado por `get_mongo_writer_from_env()` que ya gestiona la conexion correctamente
+  - Primer intento de CA-8 hacia `_client.options.server_selection_timeout = 1` — pymongo 4.x ya no lo permite como property setter. Reemplazado por construir el `MongoClient` directamente con `serverSelectionTimeoutMS` y `connectTimeoutMS` cortos
+- **Leccion aprendida:** Para tests E2E que requieren timeouts cortos, configurar via parametros del constructor del cliente (no via mutacion post-creacion). Mas portable entre versiones de las librerias
+
 ## Reflexion critica (en construccion)
 
 ### Que ha aportado la IA hasta ahora
